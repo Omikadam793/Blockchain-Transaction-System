@@ -1,80 +1,59 @@
+import time
 import hashlib
-import datetime
-import collections
-import binascii
-import Crypto
-import Crypto.Random
-
-# import Cryptodome.Random
-from Crypto.Hash import SHA
-from Crypto.PublicKey import RSA
-from Crypto.Signature import PKCS1_v1_5
-
+import json
 
 class Client:
     def __init__(self):
-        random = Crypto.Random.new().read
-        self._private_key = RSA.generate(1024, random)
-        self._public_key = self._private_key.publickey()
-        self._signer = PKCS1_v1_5.new(self._private_key)
-
-    @property
-    def identity(self):
-        return binascii.hexlify(self._public_key.exportKey(format='DER')).decode('ascii')
-
+        # Generates a pseudo-random unique public identity string for the local simulated account
+        self.identity = hashlib.sha256(str(time.time()).encode('utf-8')).hexdigest()[:40]
 
 class Transaction:
-    def __init__(self, sender, recipient, value):
+    def __init__(self, sender: Client, recipient: Client, value: float):
         self.sender = sender
         self.recipient = recipient
         self.value = value
-        self.time = str(datetime.datetime.now())
+        self.time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+        self.gas_fee = 0.0  # Acts as the structural fallback baseline property
 
-    def to_dict(self):
-        if self.sender == "Genesis":
-            sender_identity = "Genesis"
-        else:
-            sender_identity = self.sender.identity
-
-        recipient_identity = self.recipient.identity
-        transaction_value = self.value
-
-        return collections.OrderedDict({
-            'sender': sender_identity,
-            'recipient': recipient_identity,
-            'value': transaction_value,
-            'time': self.time
-        })
-
-    def sign_transaction(self):
-        private_key = self.sender._private_key
-        signer = PKCS1_v1_5.new(private_key)
-        h = SHA.new(str(self.to_dict()).encode('utf8'))
-        return binascii.hexlify(signer.sign(h)).decode('ascii')
-
-
-def sha256(message):
-    return hashlib.sha256(message.encode()).hexdigest()
-
+    def sign_transaction(self) -> str:
+        """Generates a default local structural signature string hash tracking fallback."""
+        tx_dict = {
+            "sender": self.sender.identity if hasattr(self.sender, 'identity') else str(self.sender),
+            "recipient": self.recipient.identity if hasattr(self.recipient, 'identity') else str(self.recipient),
+            "value": self.value,
+            "time": self.time
+        }
+        tx_string = json.dumps(tx_dict, sort_keys=True)
+        return hashlib.sha256(tx_string.encode('utf-8')).hexdigest()
 
 class Block:
-    def __init__(self, verified_transactions, previous_block_hash, nonce):
+    def __init__(self, verified_transactions: list, previous_block_hash: str, nonce: int = 0):
         self.verified_transactions = verified_transactions
         self.previous_block_hash = previous_block_hash
         self.nonce = nonce
-        self.block_data = f"{' - '.join(verified_transactions)} - {previous_block_hash} - {nonce}"
-        self.block_hash = sha256(self.block_data)
+        self.timestamp = time.time()
+        # Formulate complete block packet metadata tracking logs
+        self.block_data = json.dumps({
+            "transactions": verified_transactions,
+            "previous_hash": previous_block_hash,
+            "nonce": nonce
+        }, sort_keys=True)
+        self.block_hash = self.calculate_hash()
 
+    def calculate_hash(self) -> str:
+        return hashlib.sha256(self.block_data.encode('utf-8')).hexdigest()
 
-def mine(transactions, previous_block_hash, difficulty=2):
-    nonce_limit = 10 ** 10
-    prefix = '0' * difficulty
+def sha256(text: str) -> str:
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
-    for nonce in range(nonce_limit):
-        block = Block(transactions, previous_block_hash, nonce)
-        digest = block.block_hash
-
-        if digest.startswith(prefix):
+def mine(signatures: list, previous_hash: str, difficulty: int = 2) -> Block:
+    """Computes a valid Proof-of-Work block matching target prefix difficulty conditions."""
+    target_prefix = '0' * difficulty
+    nonce = 0
+    
+    while True:
+        # Assemble blocks dynamically on-the-fly to test changing nonces against the target prefix
+        block = Block(verified_transactions=signatures, previous_block_hash=previous_hash, nonce=nonce)
+        if block.block_hash.startswith(target_prefix):
             return block
-
-    return None
+        nonce += 1

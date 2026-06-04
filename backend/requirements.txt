@@ -5,3 +5,4 @@ pycryptodome
 pydantic
 python-dotenv
 fastapi[all]
+eth-account

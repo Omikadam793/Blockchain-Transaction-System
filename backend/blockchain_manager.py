@@ -5,6 +5,8 @@ from typing import Dict, List
 class BlockchainManager:
     def __init__(self):
         self.clients: Dict[str, Client] = {}
+        # Simple ledger index to track client native coin allocations dynamically
+        self.balances: Dict[str, float] = {} 
         self.transactions: List[Transaction] = []
         self.blockchain: List[Block] = []
         self.pending_transactions: List[Transaction] = []
@@ -12,6 +14,10 @@ class BlockchainManager:
     def create_client(self, name: str) -> dict:
         client = Client()
         self.clients[name] = client
+        # Seed new local visualization accounts with a default entry starting balance
+        if name not in self.balances:
+            self.balances[name] = 100.00
+            
         return {
             "name": name,
             "identity": client.identity
@@ -19,24 +25,72 @@ class BlockchainManager:
     
     def get_client(self, name: str) -> Client:
         return self.clients.get(name)
-    
-    def create_transaction(self, sender_name: str, recipient_name: str, value: float) -> dict:
+
+    # Killer Feature #3 Tracker: Fetch current wallet balances seamlessly
+    def get_balance(self, name: str) -> float:
+        # Fallback to handle MetaMask addresses registered on-the-fly safely
+        return self.balances.get(name, 100.00)
+
+    # Killer Feature #3 Utility: Mutate wallet accounts upon block processing confirmations
+    def credit_balance(self, name: str, amount: float):
+        if name not in self.balances:
+            self.balances[name] = 100.00
+        self.balances[name] += amount
+
+    # Killer Feature #2 Interface Extension: Appends gas tip settings natively to objects
+    def create_transaction_with_gas(self, sender_name: str, recipient_name: str, value: float, gas_fee: float, signature: str = None) -> dict:
         sender = self.clients.get(sender_name)
         recipient = self.clients.get(recipient_name)
         
         if not sender or not recipient:
-            raise ValueError("Sender or recipient not found")
+            raise ValueError("Sender or recipient not found within engine registry blueprints")
         
+        # ─── PHASE 1: CRYPTOGRAPHIC SIGNATURE VERIFICATION ───
+        # If the sender is an external Web3 address, validate their signed message authorization
+        if sender_name.startswith("0x"):
+            if not signature:
+                raise ValueError("Cryptographic signature is missing for this wallet transaction!")
+                
+            from eth_account.messages import encode_defunct
+            from eth_account import Account
+            
+            # Reconstruct the exact text message string payload signed on the frontend browser interface
+            msg_text = f"Submitting a transaction of {value} coins from {sender_name} to {recipient_name} with gas fee {gas_fee}."
+            message = encode_defunct(text=msg_text)
+            
+            try:
+                # Recover the public public key address that initialized this signing event
+                recovered_address = Account.recover_message(message, signature=signature)
+                
+                # Verify that the public key owner matches the claimed account identity
+                if recovered_address.lower() != sender_name.lower():
+                    raise ValueError("Security Alert: Cryptographic signature mismatch! Transaction spoofing blocked.")
+            except Exception as e:
+                raise ValueError(f"Signature authentication failed: {str(e)}")
+        # ─────────────────────────────────────────────────────
+
         transaction = Transaction(sender, recipient, value)
+        
+        # Inject gas fee safely as an explicit attribute on the custom object instance
+        transaction.gas_fee = gas_fee 
+        
         self.pending_transactions.append(transaction)
+        
+        # Prioritize mempool list immediately based on premium priority tip incentives
+        self.pending_transactions.sort(key=lambda x: getattr(x, 'gas_fee', 0.0), reverse=True)
         
         return {
             "sender": sender_name,
             "recipient": recipient_name,
             "value": value,
+            "gas_fee": gas_fee,
             "time": transaction.time,
-            "signature": transaction.sign_transaction()
+            "signature": signature if signature else transaction.sign_transaction()
         }
+    
+    def create_transaction(self, sender_name: str, recipient_name: str, value: float) -> dict:
+        # Gracefully forward standard structural formats to the gas-enabled pipeline engine
+        return self.create_transaction_with_gas(sender_name, recipient_name, value, 0.0)
     
     def mine_block(self, difficulty: int = 2) -> dict:
         if not self.pending_transactions:
@@ -49,6 +103,21 @@ class BlockchainManager:
         
         if block:
             self.blockchain.append(block)
+            
+            # Settlement Process: Deduct transfers and gas ledger fees upon valid state updates
+            for tx in self.pending_transactions:
+                # Resolve mapping keys based on matched identity string names
+                tx_sender_name = next((k for k, v in self.clients.items() if v.identity == tx.sender.identity), None) if hasattr(tx.sender, 'identity') else None
+                tx_recipient_name = next((k for k, v in self.clients.items() if v.identity == tx.recipient.identity), None) if hasattr(tx.recipient, 'identity') else None
+                
+                tx_value = getattr(tx, 'value', 0.0)
+                tx_gas = getattr(tx, 'gas_fee', 0.0)
+                
+                if tx_sender_name and tx_sender_name in self.balances:
+                    self.balances[tx_sender_name] -= (tx_value + tx_gas)
+                if tx_recipient_name and tx_recipient_name in self.balances:
+                    self.balances[tx_recipient_name] += tx_value
+
             self.transactions.extend(self.pending_transactions)
             self.pending_transactions = []
             
@@ -80,19 +149,15 @@ class BlockchainManager:
             return {"valid": True, "message": "Blockchain is empty"}
         
         errors = []
-        
         for i, block in enumerate(self.blockchain):
-            # Check if hash starts with required zeros (difficulty 2)
             if not block.block_hash.startswith('00'):
                 errors.append(f"Block {i}: Invalid hash (doesn't meet difficulty)")
             
-            # Check hash integrity
             from blockchain import sha256
             expected_hash = sha256(block.block_data)
             if block.block_hash != expected_hash:
                 errors.append(f"Block {i}: Hash mismatch (block was tampered)")
             
-            # Check chain linkage
             if i > 0:
                 if block.previous_block_hash != self.blockchain[i-1].block_hash:
                     errors.append(f"Block {i}: Chain broken (previous hash doesn't match)")
@@ -100,7 +165,7 @@ class BlockchainManager:
         if errors:
             return {"valid": False, "errors": errors}
         
-        return {"valid": True, "message": f" Blockchain is valid ({len(self.blockchain)} blocks)"}
+        return {"valid": True, "message": f"Blockchain is valid ({len(self.blockchain)} blocks)"}
     
     def tamper_block(self, block_number: int) -> dict:
         if block_number >= len(self.blockchain):
@@ -118,19 +183,26 @@ class BlockchainManager:
         }
     
     def get_all_clients(self) -> List[dict]:
-        return [{"name": name, "identity": client.identity[:20] + "..."} 
-                for name, client in self.clients.items()]
+        # Return balances dynamically to the frontend tracker panels
+        return [{
+            "name": name, 
+            "identity": client.identity[:20] + "...",
+            "balance": self.get_balance(name)
+        } for name, client in self.clients.items()]
     
     def get_pending_transactions(self) -> List[dict]:
+        # Extract gas_fee via object attribute lookup safely using getattr()
         return [{
-            "sender": t.sender.identity[:20] + "..." if t.sender != "Genesis" else "Genesis",
-            "recipient": t.recipient.identity[:20] + "...",
+            "sender": t.sender.identity[:20] + "..." if hasattr(t.sender, 'identity') else str(t.sender),
+            "recipient": t.recipient.identity[:20] + "..." if hasattr(t.recipient, 'identity') else str(t.recipient),
             "value": t.value,
+            "gas_fee": getattr(t, 'gas_fee', 0.0),
             "time": t.time
         } for t in self.pending_transactions]
     
     def reset(self) -> dict:
         self.clients.clear()
+        self.balances.clear()
         self.transactions.clear()
         self.blockchain.clear()
         self.pending_transactions.clear()

@@ -4,119 +4,112 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blockchain Visualizer</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="container">
-      <div
-        style="
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 30px;
-        "
-      >
-        <h1 style="margin: 0">🔗 Blockchain Visualizer</h1>
-        <button
-          onclick="toggleTheme()"
-          id="themeToggle"
-          style="width: auto; padding: 10px 20px; background: #3b2066ff"
-        >
-          Dark Mode
-        </button>
+      
+      <div class="header-container" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1 style="margin-bottom: 0; text-align: left;">🔗 Blockchain Space</h1>
+        <button onclick="toggleTheme()" id="themeToggle" class="btn-secondary" style="width: auto; padding: 8px 16px;">Dark Mode</button>
       </div>
 
       <div class="dashboard">
-        <!-- Client Creation Panel -->
-        <div class="panel">
-          <h2>Create Client</h2>
-          <div class="success-message" id="clientSuccess"></div>
-          <div class="error-message" id="clientError"></div>
-          <div class="form-group">
-            <label>Client Name</label>
-            <input type="text" id="clientName" placeholder="Enter name" />
+        
+        <div class="panel-column" style="display: flex; flex-direction: column; gap: 20px;">
+          
+          <div class="panel">
+            <h2>🦊 Web3 Connect</h2>
+            <p style="color: #888; font-size: 0.9em; margin-bottom: 15px;">Link your browser extension wallet to use real cryptographic addresses.</p>
+            <button id="connectWalletBtn" onclick="connectMetaMask()">Connect MetaMask</button>
+            <div class="wallet-box" style="background: #1a1a1a; padding: 10px; margin-top: 15px; border-radius: 2px; font-family: monospace; font-size: 0.85em; border: 1px solid #333;">
+              <strong>Status:</strong> <span id="walletStatus" style="color: red;">Disconnected</span><br>
+              <strong>Address:</strong> <span id="walletAddress">0x0000...0000</span>
+            </div>
           </div>
-          <button onclick="createClient()">Create Client</button>
-          <div class="clients-list" id="clientsList"></div>
+
+          <div class="panel">
+            <h2>Create Local Client</h2>
+            <div class="success-message" id="clientSuccess"></div>
+            <div class="error-message" id="clientError"></div>
+            <div class="form-group">
+              <label>Client Name</label>
+              <input type="text" id="clientName" placeholder="Enter name" />
+            </div>
+            <button onclick="createClient()">Create Client</button>
+            <div class="clients-list" id="clientsList"></div>
+          </div>
+          
         </div>
 
-        <!-- Transaction Panel -->
-        <div class="panel">
-          <h2>Create Transaction</h2>
-          <div class="success-message" id="txSuccess"></div>
-          <div class="error-message" id="txError"></div>
-          <div class="form-group">
-            <label>Sender</label>
-            <select id="sender"></select>
-          </div>
-          <div class="form-group">
-            <label>Recipient</label>
-            <select id="recipient"></select>
-          </div>
-          <div class="form-group">
-            <label>Amount</label>
-            <input type="number" id="amount" placeholder="0.00" step="0.01" />
-          </div>
-          <button onclick="createTransaction()">Create Transaction</button>
-
-          <h2 style="margin-top: 30px">Pending Transactions</h2>
-          <div class="pending-list" id="pendingList"></div>
-
-          <div class="form-group" style="margin-top: 15px">
-            <label>Mining Difficulty (Leading Zeros)</label>
-            <input type="number" id="difficulty" min="1" max="5" value="2" />
+        <div class="panel-column" style="display: flex; flex-direction: column; gap: 20px;">
+          
+          <div class="panel">
+            <h2>Create Transaction</h2>
+            <div class="success-message" id="txSuccess"></div>
+            <div class="error-message" id="txError"></div>
+            <div class="form-group">
+              <label>Sender</label>
+              <select id="sender"></select>
+            </div>
+            <div class="form-group">
+              <label>Recipient</label>
+              <select id="recipient"></select>
+            </div>
+            <div class="form-group">
+              <label>Amount</label>
+              <input type="number" id="amount" placeholder="0.00" step="0.01" />
+            </div>
+            <div class="form-group">
+              <label>Gas Fee Tip (Priority Queue)</label>
+              <input type="number" id="gasFee" placeholder="0.00" step="0.01" value="0.05" />
+            </div>
+            <button onclick="createTransaction()">Create Transaction</button>
           </div>
 
-          <button onclick="mineBlock()" style="margin-top: 10px">
-            Mine Block
-          </button>
+          <div class="panel">
+            <h2>Pending Pool (Mempool)</h2>
+            <div class="pending-list" id="pendingList"></div>
+            <div class="form-group" style="margin-top: 20px">
+              <label>Mining Difficulty</label>
+              <input type="number" id="difficulty" min="1" max="5" value="2" />
+            </div>
+            <button onclick="mineBlock()" style="background: #3b2066f1;">Mine Pending Transactions</button>
+          </div>
+
         </div>
       </div>
 
-      <!-- Blockchain Visualization -->
       <div class="blockchain-container">
         <div class="blockchain-header">
-          <h2 style="color: #f67d19ff; margin: 0">Blockchain</h2>
+          <h2>Visual Ledger Timeline</h2>
           <div style="display: flex; gap: 10px">
-            <button
-              onclick="validateBlockchain()"
-              style="width: auto; padding: 10px 20px; background: #1ad3d3ff"
-            >
-              Validate Chain
-            </button>
-            <button
-              onclick="resetBlockchain()"
-              style="width: auto; padding: 10px 20px; background: #ff4444"
-            >
-              Reset
-            </button>
+            <button onclick="validateBlockchain()" style="background: #1a4d1a; color: #90ee90; border: 1px solid #2d6b2d; width: auto; padding: 8px 16px;">Validate Chain</button>
+            <button onclick="resetBlockchain()" style="background: #4d1a1a; color: #ff6b6b; border: 1px solid #6b2d2d; width: auto; padding: 8px 16px;">Reset Ledger</button>
           </div>
         </div>
         <div class="success-message" id="validateSuccess"></div>
         <div class="error-message" id="validateError"></div>
         <div class="mining-status" id="miningStatus">
-          <div class="spinner"></div>
-          Mining in progress...
+          <div class="spinner"></div>Mining cryptographic block validation...
         </div>
         <div class="blockchain-visual" id="blockchainVisual">
-          <div class="empty-state">
-            No blocks yet. Create clients, transactions, and mine your first
-            block!
-          </div>
+          <div class="empty-state">No blocks mined yet. Stage transactions to build your first block!</div>
         </div>
       </div>
+
     </div>
 
-    <!-- Block Details Modal -->
     <div class="modal" id="blockModal" onclick="closeModal(event)">
       <div class="modal-content" onclick="event.stopPropagation()">
-        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <button class="modal-close" onclick="closeModal('close')">&times;</button>
         <div class="modal-header" id="modalHeader">Block Details</div>
         <div id="modalBody"></div>
       </div>
     </div>
 
-    <script src="config.js"></script>
-    <script src="app.js"></script>
+    <script src="config.js?v=6"></script>
+    <script src="app.js?v=6"></script>
   </body>
 </html>
