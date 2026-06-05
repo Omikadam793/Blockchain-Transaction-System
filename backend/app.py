@@ -15,8 +15,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS Configuration - Allows communication from your frontend port 3000
-raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+# --- PRODUCTION-READY CORS CONFIGURATION ---
+# Includes fallback origins for your Vercel URL, local apps, and MetaMask workflows
+raw_origins = os.getenv(
+    "CORS_ORIGINS", 
+    "http://localhost:3000,http://127.0.0.1:3000,https://blockchain-transaction-system.vercel.app"
+)
 allowed_origins_list = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
 
 app.add_middleware(
@@ -56,7 +60,7 @@ class MineRequest(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "running", "port": 5002}
+    return {"status": "running", "environment": "production"}
 
 @app.post("/api/clients")
 def create_client(client: ClientCreate):
@@ -159,4 +163,5 @@ def reset_blockchain():
     return {"success": True, "data": result}
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="127.0.0.1", port=5002, reload=True)
+    # Standard production initialization command bindings
+    uvicorn.run("app:app", host="0.0.0.0", port=5002, reload=True)
