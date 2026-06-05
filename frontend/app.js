@@ -13,7 +13,7 @@ let connectedMetaMaskAddress = null;
 // CLIENT MANAGEMENT
 // ==========================================
 async function createClient() {
-  const name = document.getElementById("clientName").value;
+  const name = document.getElementById("clientName").value.trim();
   if (!name) {
     showMessage("clientError", "Please enter a name");
     return;
@@ -31,6 +31,8 @@ async function createClient() {
       showMessage("clientSuccess", `Client "${name}" created!`);
       document.getElementById("clientName").value = "";
       loadClients();
+    } else {
+      showMessage("clientError", result.detail || "Failed to create client");
     }
   } catch (error) {
     showMessage("clientError", "Error creating client");
@@ -48,6 +50,10 @@ async function loadClients() {
 
     if (!clientsList || !sender || !recipient) return;
 
+    // Cache current selections to re-apply them if they still exist after refreshing the list
+    const previousSender = sender.value;
+    const previousRecipient = recipient.value;
+
     clientsList.innerHTML = "";
     sender.innerHTML = '<option value="">Select sender</option>';
     recipient.innerHTML = '<option value="">Select recipient</option>';
@@ -55,15 +61,19 @@ async function loadClients() {
     if (result.data && Array.isArray(result.data)) {
       result.data.forEach((client) => {
         const balance = client.balance !== undefined ? client.balance : 100.00;
+        
+        // CRITICAL FIX: Extract the underlying unique hash identity (e.g., dde0a04133...)
+        // fallback securely to name if identity isn't provided by the database schema tier
+        const accountAddress = (client.identity || client.address || client.name).toLowerCase();
 
-        // Prevent rendering raw hex addresses directly inside standard client visualization cards
+        // Prevent rendering raw hex backend addresses directly inside standard local client visualization cards
         if (client.name.startsWith("0x")) return;
 
         clientsList.innerHTML += `
           <div class="client-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 10px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px;">
             <div>
               <strong style="color: #fff;">${client.name}</strong><br>
-              <small style="color: #888; font-family: monospace;">${client.identity || 'Local Account'}</small>
+              <small style="color: #888; font-family: monospace;">${accountAddress.substring(0, 10)}...</small>
             </div>
             <div style="background: #222; border: 1px solid #444; padding: 4px 10px; border-radius: 4px; text-align: right;">
               <strong style="color: #90ee90; font-family: monospace;">${balance.toFixed(2)} 🪙</strong>
@@ -71,64 +81,94 @@ async function loadClients() {
           </div>
         `;
         
-        sender.innerHTML += `<option value="${client.name}">${client.name} (Bal: ${balance.toFixed(2)})</option>`;
-        recipient.innerHTML += `<option value="${client.name}">${client.name}</option>`;
+        // CRITICAL FIX: Option value MUST hold the lowercase crypto address hash, NOT the visual name "Omkar"
+        sender.innerHTML += `<option value="${accountAddress}">${client.name} (Bal: ${balance.toFixed(2)})</option>`;
+        recipient.innerHTML += `<option value="${accountAddress}">${client.name}</option>`;
       });
     }
 
+    // Reinject the active MetaMask wallet identity if connected
     if (connectedMetaMaskAddress) {
       const metaMaskLabel = `🦊 MetaMask (${connectedMetaMaskAddress.substring(0, 6)}...${connectedMetaMaskAddress.slice(-4)})`;
       injectWalletToDropdown(sender, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
       injectWalletToDropdown(recipient, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
     }
+
+    // Re-apply previous selections if applicable
+    if (previousSender) sender.value = previousSender;
+    if (previousRecipient) recipient.value = previousRecipient;
+
   } catch (error) {
     console.error("Error loading client database registries:", error);
   }
+}
+
+function injectWalletToDropdown(dropdownElement, walletValue, labelText) {
+  if (!dropdownElement) return;
+  // Clean up existing injection targets to avoid duplicated entries
+  for (let i = dropdownElement.options.length - 1; i >= 0; i--) {
+    const opt = dropdownElement.options[i];
+    if (opt.value && opt.value.toLowerCase() === walletValue.toLowerCase()) {
+      dropdownElement.remove(i);
+    }
+  }
+  const newOption = document.createElement("option");
+  newOption.value = walletValue.toLowerCase();
+  newOption.text = labelText;
+  dropdownElement.appendChild(newOption);
 }
 
 // ==========================================
 // TRANSACTION MANAGEMENT
 // ==========================================
 async function createTransaction() {
-  const senderRaw = document.getElementById("sender").value;
-  const recipientRaw = document.getElementById("recipient").value;
+  const sender = document.getElementById("sender").value.toLowerCase();
+  const recipient = document.getElementById("recipient").value.toLowerCase();
   const amountInput = document.getElementById("amount").value;
   const gasInput = document.getElementById("gasFee") ? document.getElementById("gasFee").value : "0";
   
   const value = parseFloat(amountInput);
   const gas_fee = parseFloat(gasInput);
 
-  if (!senderRaw || !recipientRaw || isNaN(value) || value <= 0 || isNaN(gas_fee) || gas_fee < 0) {
+  if (!sender || !recipient || isNaN(value) || value <= 0 || isNaN(gas_fee) || gas_fee < 0) {
     showMessage("txError", "Please fill all fields with valid amounts greater than or equal to 0");
     return;
   }
 
-  // Normalize all evaluation logic to lower-case formats to keep cryptography tracking uncorrupted
-  const sender = senderRaw.startsWith("0x") ? senderRaw.toLowerCase() : senderRaw;
-  const recipient = recipientRaw.startsWith("0x") ? recipientRaw.toLowerCase() : recipientRaw;
+  if (sender === recipient) {
+    showMessage("txError", "Transaction rejected: Sender and Recipient cannot be the identical address.");
+    return;
+  }
 
   let transactionSignature = null;
 
+  // Cryptographic Web3 Signing Flow triggered if the sender option is a MetaMask account
   if (sender.startsWith("0x")) {
     if (typeof window.ethereum === "undefined") {
       showMessage("txError", "MetaMask extension is required to sign for this wallet address!");
       return;
     }
     
+    // Safety check ensuring the selected sender matches the currently connected extension account
+    if (sender !== connectedMetaMaskAddress) {
+      showMessage("txError", `Active MetaMask account (${connectedMetaMaskAddress.substring(0,6)}...) does not match selected sender.`);
+      return;
+    }
+
     try {
       showMessage("txSuccess", "✍️ Please sign the transaction verification request in your MetaMask extension...");
       
-      // FIXED: Strictly mirrors structural format layout rules inside blockchain_manager.py
+      // PERFECT MATCH TEMPLATE: Strictly mirrors string construction found in blockchain_manager.py
       const messageToSign = `Submitting a transaction of ${value.toFixed(2)} coins from ${sender} to ${recipient} with gas fee ${gas_fee.toFixed(2)}.`;
       
-      // Convert raw string to a pure UTF-8 Hex sequence natively
+      // Native conversion into a clean UTF-8 Hex string layout sequence
       const encoder = new TextEncoder();
       const data = encoder.encode(messageToSign);
       const hexMessage = "0x" + Array.from(data).map(b => b.toString(16).padStart(2, "0")).join("");
       
       transactionSignature = await window.ethereum.request({
         method: "personal_sign",
-        params: [hexMessage, sender],
+        params: [hexMessage, connectedMetaMaskAddress],
       });
       
     } catch (signError) {
@@ -143,10 +183,10 @@ async function createTransaction() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
-        sender, 
-        recipient, 
-        value, 
-        gas_fee,
+        sender: sender, 
+        recipient: recipient, 
+        value: value, 
+        gas_fee: gas_fee,
         signature: transactionSignature
       }),
     });
@@ -156,7 +196,8 @@ async function createTransaction() {
     if (response.ok && result.success) {
       showMessage("txSuccess", "Transaction verified and queued into prioritized Mempool! ✅");
       document.getElementById("amount").value = "";
-      if(document.getElementById("gasFee")) document.getElementById("gasFee").value = "0";
+      if (document.getElementById("gasFee")) document.getElementById("gasFee").value = "0.05";
+      
       loadPendingTransactions();
       loadClients();
     } else {
@@ -195,7 +236,7 @@ async function loadPendingTransactions() {
             </div>
             <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center;">
               <strong style="color: #f67d19;">${tx.value.toFixed(2)} coins</strong>
-              <small style="color: #555;">${tx.time || "Pending confirmation"}</small>
+              <small style="color: #555;">${tx.time || "Pending"}</small>
             </div>
           </div>
         `;
@@ -211,7 +252,8 @@ async function loadPendingTransactions() {
 // ==========================================
 async function mineBlock() {
   const difficulty = parseInt(document.getElementById("difficulty").value) || 2;
-  document.getElementById("miningStatus").style.display = "block";
+  const statusEl = document.getElementById("miningStatus");
+  if (statusEl) statusEl.style.display = "flex";
 
   try {
     const response = await fetch(`${window.API_BASE_URL}/api/mine`, {
@@ -225,11 +267,13 @@ async function mineBlock() {
       loadBlockchain();
       loadPendingTransactions();
       loadClients();
+    } else {
+      alert("Mining operation encountered an error: " + (result.detail || "Unknown error"));
     }
   } catch (error) {
     alert("Error mining block: " + error.message);
   } finally {
-    document.getElementById("miningStatus").style.display = "none";
+    if (statusEl) statusEl.style.display = "none";
   }
 }
 
@@ -289,7 +333,7 @@ async function loadBlockchain() {
 async function showBlockDetails(blockNumber) {
   if (!blockchainData || blockchainData.length === 0) return;
 
-  const block = blockchainData.find(b => b && (b.block_number === blockNumber || b.index === blockNumber)) || blockchainData[blockNumber];
+  const block = blockchainData.find(b => b && (b.block_number === blockNumber || b.index === blockNumber));
   if (!block) return;
 
   const num = block.block_number !== undefined ? block.block_number : block.index;
@@ -346,7 +390,7 @@ async function validateBlockchain() {
     if (result.success && result.data.valid) {
       showMessage("validateSuccess", result.data.message);
     } else {
-      const errorMsg = result.data.errors ? result.data.errors.join(", ") : "Validation failed";
+      const errorMsg = result.data.errors ? result.data.errors.join(", ") : "Validation checking routing failed";
       showMessage("validateError", errorMsg);
     }
   } catch (error) {
@@ -360,10 +404,7 @@ async function tamperBlock(blockNumber) {
     const result = await response.json();
     if (result.success) {
       applyVisualChainBreak(blockNumber);
-      
-      setTimeout(() => {
-        loadBlockchain();
-      }, 800);
+      setTimeout(() => { loadBlockchain(); }, 800);
     }
   } catch (error) {
     console.error("Error tampering block sequence:", error);
@@ -376,7 +417,6 @@ function applyVisualChainBreak(brokenFromIndex) {
   cards.forEach((card) => {
     const cardIdStr = card.id || "";
     const currentCardNum = parseInt(cardIdStr.replace("block-card-", ""));
-    
     if (!isNaN(currentCardNum) && currentCardNum >= brokenFromIndex) {
       card.style.transition = "all 0.4s ease";
       card.style.background = "#5c1d1d";
@@ -431,8 +471,6 @@ function toggleTheme() {
 // ==========================================
 async function connectMetaMask() {
   const statusEl = document.getElementById("walletStatus");
-  const addressEl = document.getElementById("walletAddress");
-
   if (typeof window.ethereum === "undefined") {
     alert("MetaMask extension not found! Please install it.");
     return;
@@ -443,15 +481,13 @@ async function connectMetaMask() {
       statusEl.innerText = "Connecting...";
       statusEl.style.color = "#f67d19";
     }
-
     let accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
     await handleAccountsChanged(accounts);
   } catch (error) {
     console.error("MetaMask connection failed:", error);
-    if (statusEl && addressEl) {
+    if (statusEl) {
       statusEl.innerText = "Disconnected";
       statusEl.style.color = "red";
-      addressEl.innerText = "0x0000...0000";
     }
     alert("Connection failed: " + error.message);
   }
@@ -472,11 +508,12 @@ async function handleAccountsChanged(accounts) {
     addressEl.innerText = "0x0000...0000";
     loadClients(); 
   } else {
-    connectedMetaMaskAddress = accounts[0].toLowerCase(); // Normalize string cases completely
+    connectedMetaMaskAddress = accounts[0].toLowerCase();
     statusEl.innerText = "Connected";
     statusEl.style.color = "#90ee90";
     addressEl.innerText = connectedMetaMaskAddress;
 
+    // Post the raw MetaMask wallet entry to the remote state directory tracker automatically
     try {
       await fetch(`${window.API_BASE_URL}/api/clients`, {
         method: "POST",
@@ -484,27 +521,15 @@ async function handleAccountsChanged(accounts) {
         body: JSON.stringify({ name: connectedMetaMaskAddress }),
       });
     } catch (err) {
-      console.warn("MetaMask address registration notice:", err.message);
+      console.warn("MetaMask address auto-registration note:", err.message);
     }
 
     const metaMaskLabel = `🦊 MetaMask (${connectedMetaMaskAddress.substring(0, 6)}...${connectedMetaMaskAddress.slice(-4)})`;
     injectWalletToDropdown(senderDropdown, connectedMetaMaskAddress, metaMaskLabel);
     injectWalletToDropdown(recipientDropdown, connectedMetaMaskAddress, metaMaskLabel);
+    
+    loadClients();
   }
-}
-
-function injectWalletToDropdown(dropdownElement, walletValue, labelText) {
-  if (!dropdownElement) return;
-  for (let i = dropdownElement.options.length - 1; i >= 0; i--) {
-    const opt = dropdownElement.options[i];
-    if (opt.value && opt.value.toLowerCase().startsWith("0x")) {
-      dropdownElement.remove(i);
-    }
-  }
-  const newOption = document.createElement("option");
-  newOption.value = walletValue;
-  newOption.text = labelText;
-  dropdownElement.appendChild(newOption);
 }
 
 // ==========================================
@@ -529,14 +554,3 @@ document.addEventListener("DOMContentLoaded", () => {
     window.ethereum.on("accountsChanged", handleAccountsChanged);
   }
 });
-
-function switchTab(event, tabId) {
-  const contents = document.querySelectorAll('.tab-content');
-  contents.forEach(content => content.classList.remove('active-content'));
-
-  const buttons = document.querySelectorAll('.tab-btn');
-  buttons.forEach(btn => btn.classList.remove('active'));
-
-  document.getElementById(tabId).classList.add('active-content');
-  event.currentTarget.classList.add('active');
-}
