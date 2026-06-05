@@ -80,14 +80,13 @@ async function loadClients() {
           </div>
         `;
         
-        // CRITICAL UPDATE: Store the unique client identity name as the value attribute tracker.
-        // We resolve its live cryptographic address dynamically during transaction payload compilation.
+        // Store the name as the option value. We map the hex address live during form submission.
         sender.innerHTML += `<option value="${client.name}">${client.name} (Bal: ${balance.toFixed(2)})</option>`;
         recipient.innerHTML += `<option value="${client.name}">${client.name}</option>`;
       });
     }
 
-    // Safely append active MetaMask interface targets
+    // Safely append active MetaMask interface targets using the raw lowercased 0x address as value
     if (connectedMetaMaskAddress) {
       const metaMaskLabel = `🦊 MetaMask (${connectedMetaMaskAddress.substring(0, 6)}...${connectedMetaMaskAddress.slice(-4)})`;
       injectWalletToDropdown(sender, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
@@ -153,10 +152,11 @@ async function createTransaction() {
     return;
   }
 
-  // DYNAMIC RESOLUTION LAYER: Get the absolutely current address from the active cache array
+  // DYNAMIC RESOLUTION LAYER
   let sender = senderValue.toLowerCase();
   let recipient = recipientValue.toLowerCase();
 
+  // If sender value isn't a MetaMask 0x address, find its current live database identity hex string
   if (!senderValue.startsWith("0x")) {
     const matchedSender = clientRegistryCache.find(c => c.name === senderValue);
     if (matchedSender) {
@@ -164,6 +164,7 @@ async function createTransaction() {
     }
   }
   
+  // If recipient value isn't a MetaMask 0x address, find its current live database identity hex string
   if (!recipientValue.startsWith("0x")) {
     const matchedRecipient = clientRegistryCache.find(c => c.name === recipientValue);
     if (matchedRecipient) {
@@ -178,7 +179,7 @@ async function createTransaction() {
 
   let transactionSignature = null;
 
-  // Web3 MetaMask cryptographical initialization block
+  // Web3 MetaMask cryptographic signature block
   if (sender.startsWith("0x")) {
     if (typeof window.ethereum === "undefined") {
       showMessage("txError", "MetaMask extension is required to sign for this wallet address!");
@@ -408,6 +409,7 @@ async function showBlockDetails(blockNumber) {
   document.getElementById("blockModal").style.display = "flex";
 }
 
+// Close helper
 function closeModal(event) {
   const modal = document.getElementById("blockModal");
   if (!modal) return;
