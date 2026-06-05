@@ -1,8 +1,10 @@
 // ==========================================
 // CONFIGURATION & GLOBAL STATE
 // ==========================================
-// Fallback declaration ensuring window context variables from config.js bind flawlessly
-const API_BASE_URL = window.API_BASE_URL || "https://blockchain-transaction-system.onrender.com";
+// Fallback declaration ensuring window context variables from config.js bind flawlessly without redeclaration crashes
+if (typeof API_BASE_URL === 'undefined') {
+    var API_BASE_URL = window.API_BASE_URL || "https://blockchain-transaction-system.onrender.com";
+}
 
 let blockchainData = [];
 let connectedMetaMaskAddress = null;
@@ -109,7 +111,6 @@ async function createTransaction() {
     try {
       showMessage("txSuccess", "✍️ Please sign the transaction verification request in your MetaMask extension...");
       
-      //  FIXED: Added the missing $ token before {value} for accurate string interpolation
       const messageToSign = `Submitting a transaction of ${value} coins from ${sender} to ${recipient} with gas fee ${gas_fee}.`;
       
       transactionSignature = await window.ethereum.request({
