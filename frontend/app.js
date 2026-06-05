@@ -7,6 +7,7 @@ if (!window.API_BASE_URL) {
 
 let blockchainData = [];
 let connectedMetaMaskAddress = null;
+let clientRegistryCache = []; // Global cache to keep track of the latest backend details
 
 // ==========================================
 // CLIENT MANAGEMENT
@@ -49,22 +50,22 @@ async function loadClients() {
 
     if (!clientsList || !sender || !recipient) return;
 
-    // Cache current selections to retain them across visual refreshes
-    const previousSender = sender.value;
-    const previousRecipient = recipient.value;
+    // Cache current visual text selections to restore them nicely
+    const previousSenderText = sender.options[sender.selectedIndex] ? sender.options[sender.selectedIndex].text.split(" (")[0] : "";
+    const previousRecipientText = recipient.options[recipient.selectedIndex] ? recipient.options[recipient.selectedIndex].text : "";
 
     clientsList.innerHTML = "";
     sender.innerHTML = '<option value="">Select sender</option>';
     recipient.innerHTML = '<option value="">Select recipient</option>';
 
     if (result.data && Array.isArray(result.data)) {
+      clientRegistryCache = result.data; // Sync the global registry cache
+
       result.data.forEach((client) => {
         const balance = client.balance !== undefined ? client.balance : 100.00;
-        
-        // Comprehensive fallback layout to ensure raw hex mapping parameters are never missed
         const accountAddress = (client.id || client.identity || client.address || client.client_id || client.name).toLowerCase();
 
-        // Skip adding raw standalone 0x web3 addresses into local sandbox visual lists
+        // Skip raw standalone 0x web3 addresses from the sandbox sidebar
         if (client.name.startsWith("0x")) return;
 
         clientsList.innerHTML += `
@@ -79,25 +80,36 @@ async function loadClients() {
           </div>
         `;
         
-        // Store hex hash directly in the element value attribute
-        sender.innerHTML += `<option value="${accountAddress}">${client.name} (Bal: ${balance.toFixed(2)})</option>`;
-        recipient.innerHTML += `<option value="${accountAddress}">${client.name}</option>`;
+        // CRITICAL UPDATE: Store the unique client identity name as the value attribute tracker.
+        // We resolve its live cryptographic address dynamically during transaction payload compilation.
+        sender.innerHTML += `<option value="${client.name}">${client.name} (Bal: ${balance.toFixed(2)})</option>`;
+        recipient.innerHTML += `<option value="${client.name}">${client.name}</option>`;
       });
     }
 
-    // Safely inject active MetaMask targets if connected
+    // Safely append active MetaMask interface targets
     if (connectedMetaMaskAddress) {
       const metaMaskLabel = `🦊 MetaMask (${connectedMetaMaskAddress.substring(0, 6)}...${connectedMetaMaskAddress.slice(-4)})`;
       injectWalletToDropdown(sender, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
       injectWalletToDropdown(recipient, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
     }
 
-    // Reapply cached selection targets safely
-    if (previousSender && sender.querySelector(`option[value="${previousSender}"]`)) {
-      sender.value = previousSender;
+    // Restore dropdown options by structural string names to survive backend engine recycles
+    if (previousSenderText) {
+      for (let i = 0; i < sender.options.length; i++) {
+        if (sender.options[i].text.startsWith(previousSenderText)) {
+          sender.selectedIndex = i;
+          break;
+        }
+      }
     }
-    if (previousRecipient && recipient.querySelector(`option[value="${previousRecipient}"]`)) {
-      recipient.value = previousRecipient;
+    if (previousRecipientText) {
+      for (let i = 0; i < recipient.options.length; i++) {
+        if (recipient.options[i].text === previousRecipientText) {
+          recipient.selectedIndex = i;
+          break;
+        }
+      }
     }
 
   } catch (error) {
@@ -107,7 +119,6 @@ async function loadClients() {
 
 function injectWalletToDropdown(dropdownElement, walletValue, labelText) {
   if (!dropdownElement) return;
-  // Clear pre-existing identity vectors to avoid duplication stack builds
   for (let i = dropdownElement.options.length - 1; i >= 0; i--) {
     const opt = dropdownElement.options[i];
     if (opt.value && opt.value.toLowerCase() === walletValue.toLowerCase()) {
@@ -129,17 +140,35 @@ async function createTransaction() {
   
   if (!senderElement || !recipientElement) return;
 
-  const sender = senderElement.value.toLowerCase().trim();
-  const recipient = recipientElement.value.toLowerCase().trim();
+  const senderValue = senderElement.value.trim();
+  const recipientValue = recipientElement.value.trim();
   const amountInput = document.getElementById("amount").value;
   const gasInput = document.getElementById("gasFee") ? document.getElementById("gasFee").value : "0";
   
   const value = parseFloat(amountInput);
   const gas_fee = parseFloat(gasInput);
 
-  if (!sender || !recipient || isNaN(value) || value <= 0 || isNaN(gas_fee) || gas_fee < 0) {
+  if (!senderValue || !recipientValue || isNaN(value) || value <= 0 || isNaN(gas_fee) || gas_fee < 0) {
     showMessage("txError", "Please fill all fields with valid amounts greater than or equal to 0");
     return;
+  }
+
+  // DYNAMIC RESOLUTION LAYER: Get the absolutely current address from the active cache array
+  let sender = senderValue.toLowerCase();
+  let recipient = recipientValue.toLowerCase();
+
+  if (!senderValue.startsWith("0x")) {
+    const matchedSender = clientRegistryCache.find(c => c.name === senderValue);
+    if (matchedSender) {
+      sender = (matchedSender.id || matchedSender.identity || matchedSender.address || matchedSender.client_id || matchedSender.name).toLowerCase();
+    }
+  }
+  
+  if (!recipientValue.startsWith("0x")) {
+    const matchedRecipient = clientRegistryCache.find(c => c.name === recipientValue);
+    if (matchedRecipient) {
+      recipient = (matchedRecipient.id || matchedRecipient.identity || matchedRecipient.address || matchedRecipient.client_id || matchedRecipient.name).toLowerCase();
+    }
   }
 
   if (sender === recipient) {
@@ -149,7 +178,7 @@ async function createTransaction() {
 
   let transactionSignature = null;
 
-  // Web3 MetaMask personal signature compilation processing rules
+  // Web3 MetaMask cryptographical initialization block
   if (sender.startsWith("0x")) {
     if (typeof window.ethereum === "undefined") {
       showMessage("txError", "MetaMask extension is required to sign for this wallet address!");
@@ -525,7 +554,6 @@ async function handleAccountsChanged(accounts) {
       console.warn("MetaMask address auto-registration notice:", err.message);
     }
     
-    // Crucial: Run client loader to parse and update dropdown maps cleanly
     await loadClients();
   }
 }
