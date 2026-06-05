@@ -111,11 +111,17 @@ async function createTransaction() {
     try {
       showMessage("txSuccess", "✍️ Please sign the transaction verification request in your MetaMask extension...");
       
-      const messageToSign = `Submitting a transaction of ${value} coins from ${sender} to ${recipient} with gas fee ${gas_fee}.`;
+      // Enforce explicit decimal formatting to match python/backend template float styles
+      const messageToSign = `Submitting a transaction of ${value.toFixed(2)} coins from ${sender} to ${recipient} with gas fee ${gas_fee.toFixed(2)}.`;
+      
+      // Convert raw string to a pure UTF-8 Hex sequence natively
+      const encoder = new TextEncoder();
+      const data = encoder.encode(messageToSign);
+      const hexMessage = "0x" + Array.from(data).map(b => b.toString(16).padStart(2, "0")).join("");
       
       transactionSignature = await window.ethereum.request({
         method: "personal_sign",
-        params: [messageToSign, sender],
+        params: [hexMessage, sender],
       });
       
     } catch (signError) {
