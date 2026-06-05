@@ -23,9 +23,9 @@
             <h2>🦊 Web3 Connect</h2>
             <p style="color: #888; font-size: 0.9em; margin-bottom: 15px;">Link your browser extension wallet to use real cryptographic addresses.</p>
             <button id="connectWalletBtn" onclick="connectMetaMask()">Connect MetaMask</button>
-            <div class="wallet-box" style="background: #1a1a1a; padding: 10px; margin-top: 15px; border-radius: 2px; font-family: monospace; font-size: 0.85em; border: 1px solid #333;">
-              <strong>Status:</strong> <span id="walletStatus" style="color: red;">Disconnected</span><br>
-              <strong>Address:</strong> <span id="walletAddress">0x0000...0000</span>
+            <div class="wallet-box" id="walletBoxContainer" style="padding: 10px; margin-top: 15px; border-radius: 2px; font-family: monospace; font-size: 0.85em; border: 1px solid #333;">
+              <strong>Status:</strong> <span id="walletStatus" style="color: #ff4444; font-weight: bold;">Disconnected</span><br>
+              <strong>Address:</strong> <span id="walletAddress" style="font-family: monospace;">0x0000...0000</span>
             </div>
           </div>
 
@@ -38,7 +38,7 @@
               <input type="text" id="clientName" placeholder="Enter name" />
             </div>
             <button onclick="createClient()">Create Client</button>
-            <div class="clients-list" id="clientsList"></div>
+            <div class="clients-list" id="clientsList" style="margin-top: 15px; max-height: 250px; overflow-y: auto;"></div>
           </div>
           
         </div>
@@ -59,21 +59,21 @@
             </div>
             <div class="form-group">
               <label>Amount</label>
-              <input type="number" id="amount" placeholder="0.00" step="0.01" />
+              <input type="number" id="amount" placeholder="0.00" step="0.01" min="0.01" />
             </div>
             <div class="form-group">
               <label>Gas Fee Tip (Priority Queue)</label>
-              <input type="number" id="gasFee" placeholder="0.00" step="0.01" value="0.05" />
+              <input type="number" id="gasFee" placeholder="0.00" step="0.01" min="0.00" value="0.05" />
             </div>
             <button onclick="createTransaction()">Create Transaction</button>
           </div>
 
           <div class="panel">
             <h2>Pending Pool (Mempool)</h2>
-            <div class="pending-list" id="pendingList"></div>
+            <div class="pending-list" id="pendingList" style="max-height: 200px; overflow-y: auto;"></div>
             <div class="form-group" style="margin-top: 20px">
               <label>Mining Difficulty</label>
-              <input type="number" id="difficulty" min="1" max="5" value="2" />
+              <input type="number" id="difficulty" min="1" max="6" value="2" />
             </div>
             <button onclick="mineBlock()" style="background: #3b2066f1;">Mine Pending Transactions</button>
           </div>
@@ -81,20 +81,22 @@
         </div>
       </div>
 
-      <div class="blockchain-container">
-        <div class="blockchain-header">
+      <div class="blockchain-container" style="margin-top: 30px;">
+        <div class="blockchain-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h2>Visual Ledger Timeline</h2>
           <div style="display: flex; gap: 10px">
-            <button onclick="validateBlockchain()" style="background: #1a4d1a; color: #90ee90; border: 1px solid #2d6b2d; width: auto; padding: 8px 16px;">Validate Chain</button>
-            <button onclick="resetBlockchain()" style="background: #4d1a1a; color: #ff6b6b; border: 1px solid #6b2d2d; width: auto; padding: 8px 16px;">Reset Ledger</button>
+            <button onclick="validateBlockchain()" style="background: #1a4d1a; color: #90ee90; border: 1px solid #2d6b2d; width: auto; padding: 8px 16px; cursor: pointer;">Validate Chain</button>
+            <button onclick="resetBlockchain()" style="background: #4d1a1a; color: #ff6b6b; border: 1px solid #6b2d2d; width: auto; padding: 8px 16px; cursor: pointer;">Reset Ledger</button>
           </div>
         </div>
         <div class="success-message" id="validateSuccess"></div>
         <div class="error-message" id="validateError"></div>
-        <div class="mining-status" id="miningStatus">
+        
+        <div class="mining-status" id="miningStatus" style="display: none; align-items: center; gap: 10px; margin-bottom: 15px; padding: 15px; background: #22123b; border: 1px solid #4a2780; color: #c39eff;">
           <div class="spinner"></div>Mining cryptographic block validation...
         </div>
-        <div class="blockchain-visual" id="blockchainVisual">
+        
+        <div class="blockchain-visual" id="blockchainVisual" style="display: flex; gap: 20px; overflow-x: auto; padding-bottom: 15px;">
           <div class="empty-state">No blocks mined yet. Stage transactions to build your first block!</div>
         </div>
       </div>

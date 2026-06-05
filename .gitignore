@@ -1,4 +1,6 @@
+# ==========================================
 # ─── VIRTUAL ENVIRONMENTS ───
+# ==========================================
 .venv/
 venv/
 env/
@@ -15,18 +17,26 @@ var/
 wheels/
 share/python-wheels/
 
+# ==========================================
 # ─── PYTHON CACHE & COMPILED BYTES ───
+# ==========================================
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.pytest_cache/
+.ipynb_checkpoints/
 
+# ==========================================
 # ─── ENVIRONMENT VARIABLES (CRITICAL SECRETS) ───
+# ==========================================
 .env
 .env*
 !.env.example
 
+# ==========================================
 # ─── FRONTEND & DEPLOYMENT RUNTIMES ───
+# ==========================================
 .vercel/
 .vercel
 node_modules/
@@ -34,14 +44,21 @@ node_modules/
 .eslintcache
 out/
 .next/
+*.log
+vercel.log
 
+# ==========================================
 # ─── SYSTEM & IDE SPECIFIC CONFIGS ───
+# ==========================================
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
 *.swp
 *.swo
+*.log
 
+# ==========================================
 # ─── DOCUMENTATION FALLBACKS (OPTIONAL) ───
+# ==========================================
 API_DOCUMENTATION.md

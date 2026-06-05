@@ -13,6 +13,7 @@ body {
   background: #1a1a1a;
   min-height: 100vh;
   padding: 20px;
+  transition: background-color 0.3s ease;
 }
 
 .container {
@@ -39,6 +40,7 @@ h1 {
   border-radius: 2px;
   padding: 25px;
   border: 1px solid #333;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .panel h2 {
@@ -58,6 +60,7 @@ label {
   margin-bottom: 5px;
   color: #ffffff;
   font-weight: 600;
+  transition: color 0.3s ease;
 }
 
 input,
@@ -67,7 +70,7 @@ select {
   border: 1px solid #444;
   border-radius: 2px;
   font-size: 14px;
-  transition: border-color 0.3s;
+  transition: border-color 0.3s, background-color 0.3s, color 0.3s;
   background: #1a1a1a;
   color: #ffffff;
 }
@@ -110,6 +113,7 @@ button:hover {
   border-radius: 2px;
   border-left: 3px solid #f67d19;
   color: #ffffff;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 .blockchain-container {
@@ -120,6 +124,7 @@ button:hover {
   border: 1px solid #333;
   min-height: 600px;
   position: relative;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .blockchain-header {
@@ -132,6 +137,7 @@ button:hover {
   background: #2a2a2a;
   z-index: 10;
   padding: 10px 0;
+  transition: background-color 0.3s ease;
 }
 
 .blockchain-visual {
@@ -181,7 +187,7 @@ button:hover {
 }
 
 .block.tampered-break::after {
-  content: "⚡";
+  content: "⚡" !important;
   color: #ff4444;
 }
 
@@ -207,6 +213,8 @@ button:hover {
   margin-top: 5px;
   font-size: 0.75em;
   line-height: 1.4;
+  color: #ffffff;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 .empty-state {
@@ -281,6 +289,7 @@ button:hover {
   max-height: 80vh;
   overflow-y: auto;
   position: relative;
+  transition: background-color 0.3s;
 }
 
 .modal-header {
@@ -326,6 +335,7 @@ button:hover {
   word-break: break-all;
   color: #ffffff;
   border: 1px solid #444;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 .transaction-detail {
@@ -334,25 +344,98 @@ button:hover {
   margin-bottom: 10px;
   border-radius: 2px;
   border-left: 4px solid #3b2066;
+  transition: background-color 0.3s;
 }
 
-/* Light Mode Overrides */
-body.light-mode { background: #f5f5f5; }
+/* ─── REWORKED: PRODUCTION LIGHT MODE OVERRIDES ─── */
+body.light-mode { 
+  background: #f5f5f5; 
+}
+
 body.light-mode .panel,
 body.light-mode .blockchain-container,
-body.light-mode .modal-content { background: #ffffff; border-color: #ddd; }
-body.light-mode .blockchain-header { background: #ffffff; }
-body.light-mode label, body.light-mode .client-item, body.light-mode .transaction-item { color: #333; }
-body.light-mode input, body.light-mode select { background: #f5f5f5; color: #333; border-color: #ddd; }
-body.light-mode .client-item, body.light-mode .transaction-item { background: #f9f9f9; }
-body.light-mode .modal-hash { background: #f5f5f5; color: #333; border-color: #ddd; }
-body.light-mode .transaction-detail { background: #f9f9f9; }
-body.light-mode .empty-state { color: #666; }
+body.light-mode .modal-content { 
+  background: #ffffff; 
+  border-color: #ddd; 
+}
+
+body.light-mode .blockchain-header { 
+  background: #ffffff; 
+}
+
+body.light-mode label { 
+  color: #333333; 
+}
+
+body.light-mode input, 
+body.light-mode select { 
+  background: #ffffff; 
+  color: #222222; 
+  border-color: #cccccc; 
+}
+
+body.light-mode .client-item, 
+body.light-mode .transaction-item { 
+  background: #fdfdfd; 
+  border-color: #f67d19; 
+  color: #222222;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+body.light-mode .wallet-box {
+  background: #f9f9f9 !important;
+  color: #222222 !important;
+  border-color: #cccccc !important;
+}
+
+body.light-mode .hash {
+  background: rgba(0, 0, 0, 0.06);
+  color: #111111;
+}
+
+body.light-mode .modal-hash { 
+  background: #f9f9f9; 
+  color: #222222; 
+  border-color: #cccccc; 
+}
+
+body.light-mode .transaction-detail { 
+  background: #f9f9f9; 
+}
+
+body.light-mode .empty-state { 
+  color: #666666; 
+}
 
 /* Flow Diagram Utilities */
-.transaction-flow { display: flex; align-items: center; gap: 10px; font-family: "Courier New", monospace; font-size: 0.85em; }
-.flow-sender { color: #ff6b6b; font-weight: 600; }
-.flow-arrow { color: #f67d19; font-size: 1.5em; font-weight: bold; }
-.flow-recipient { color: #90ee90; font-weight: 600; }
-body.light-mode .flow-sender { color: #d63031; }
-body.light-mode .flow-recipient { color: #00b894; }
+.transaction-flow { 
+  display: flex; 
+  align-items: center; 
+  gap: 10px; 
+  font-family: "Courier New", monospace; 
+  font-size: 0.85em; 
+}
+
+.flow-sender { 
+  color: #ff6b6b; 
+  font-weight: 600; 
+}
+
+.flow-arrow { 
+  color: #f67d19; 
+  font-size: 1.5em; 
+  font-weight: bold; 
+}
+
+.flow-recipient { 
+  color: #90ee90; 
+  font-weight: 600; 
+}
+
+body.light-mode .flow-sender { 
+  color: #d63031; 
+}
+
+body.light-mode .flow-recipient { 
+  color: #00b894; 
+}

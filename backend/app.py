@@ -95,7 +95,7 @@ def create_transaction(transaction: TransactionCreate):
                 transaction.recipient,
                 transaction.value,
                 transaction.gas_fee,
-                transaction.signature  # PHASE 2 EXTENSION: Forward signature parameters straight to verification checks
+                transaction.signature  # Forward signature parameters straight to verification checks
             )
         else:
             # Fallback to structural positional arguments or classic dynamic attribute patching

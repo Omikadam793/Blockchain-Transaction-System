@@ -56,6 +56,9 @@ async function loadClients() {
       result.data.forEach((client) => {
         const balance = client.balance !== undefined ? client.balance : 100.00;
 
+        // Prevent rendering raw hex addresses directly inside standard client visualization cards
+        if (client.name.startsWith("0x")) return;
+
         clientsList.innerHTML += `
           <div class="client-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 10px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px;">
             <div>
@@ -75,8 +78,8 @@ async function loadClients() {
 
     if (connectedMetaMaskAddress) {
       const metaMaskLabel = `🦊 MetaMask (${connectedMetaMaskAddress.substring(0, 6)}...${connectedMetaMaskAddress.slice(-4)})`;
-      injectWalletToDropdown(sender, connectedMetaMaskAddress, metaMaskLabel);
-      injectWalletToDropdown(recipient, connectedMetaMaskAddress, metaMaskLabel);
+      injectWalletToDropdown(sender, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
+      injectWalletToDropdown(recipient, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
     }
   } catch (error) {
     console.error("Error loading client database registries:", error);
@@ -87,18 +90,22 @@ async function loadClients() {
 // TRANSACTION MANAGEMENT
 // ==========================================
 async function createTransaction() {
-  const sender = document.getElementById("sender").value;
-  const recipient = document.getElementById("recipient").value;
+  const senderRaw = document.getElementById("sender").value;
+  const recipientRaw = document.getElementById("recipient").value;
   const amountInput = document.getElementById("amount").value;
   const gasInput = document.getElementById("gasFee") ? document.getElementById("gasFee").value : "0";
   
   const value = parseFloat(amountInput);
   const gas_fee = parseFloat(gasInput);
 
-  if (!sender || !recipient || isNaN(value) || value <= 0 || isNaN(gas_fee) || gas_fee < 0) {
+  if (!senderRaw || !recipientRaw || isNaN(value) || value <= 0 || isNaN(gas_fee) || gas_fee < 0) {
     showMessage("txError", "Please fill all fields with valid amounts greater than or equal to 0");
     return;
   }
+
+  // Normalize all evaluation logic to lower-case formats to keep cryptography tracking uncorrupted
+  const sender = senderRaw.startsWith("0x") ? senderRaw.toLowerCase() : senderRaw;
+  const recipient = recipientRaw.startsWith("0x") ? recipientRaw.toLowerCase() : recipientRaw;
 
   let transactionSignature = null;
 
@@ -111,7 +118,7 @@ async function createTransaction() {
     try {
       showMessage("txSuccess", "✍️ Please sign the transaction verification request in your MetaMask extension...");
       
-      // Enforce explicit decimal formatting to match python/backend template float styles
+      // FIXED: Strictly mirrors structural format layout rules inside blockchain_manager.py
       const messageToSign = `Submitting a transaction of ${value.toFixed(2)} coins from ${sender} to ${recipient} with gas fee ${gas_fee.toFixed(2)}.`;
       
       // Convert raw string to a pure UTF-8 Hex sequence natively
@@ -149,6 +156,7 @@ async function createTransaction() {
     if (response.ok && result.success) {
       showMessage("txSuccess", "Transaction verified and queued into prioritized Mempool! ✅");
       document.getElementById("amount").value = "";
+      if(document.getElementById("gasFee")) document.getElementById("gasFee").value = "0";
       loadPendingTransactions();
       loadClients();
     } else {
@@ -178,16 +186,16 @@ async function loadPendingTransactions() {
         const gasTipLabel = tx.gas_fee !== undefined ? `<span style="float: right; color: #90ee90; font-size: 0.85em;">⛽ Fee: ${tx.gas_fee}</span>` : "";
 
         pendingList.innerHTML += `
-          <div class="transaction-item">
+          <div class="transaction-item" style="padding: 10px; background: #111; border: 1px solid #222; margin-bottom: 6px; border-radius: 4px;">
             <div class="transaction-flow">
-              <span class="flow-sender" title="${tx.sender}">${senderShort}</span>
-              <span class="flow-arrow">→</span>
-              <span class="flow-recipient" title="${tx.recipient}">${recipientShort}</span>
+              <span class="flow-sender" title="${tx.sender}" style="font-family: monospace; color: #aaa;">${senderShort}</span>
+              <span class="flow-arrow" style="color: #f67d19;"> → </span>
+              <span class="flow-recipient" title="${tx.recipient}" style="font-family: monospace; color: #aaa;">${recipientShort}</span>
               ${gasTipLabel}
             </div>
-            <div style="margin-top: 5px;">
-              <strong style="color: #f67d19ff;">${tx.value} coins</strong>
-              <br><small>${tx.time || "Pending confirmation"}</small>
+            <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: center;">
+              <strong style="color: #f67d19;">${tx.value.toFixed(2)} coins</strong>
+              <small style="color: #555;">${tx.time || "Pending confirmation"}</small>
             </div>
           </div>
         `;
@@ -209,7 +217,7 @@ async function mineBlock() {
     const response = await fetch(`${window.API_BASE_URL}/api/mine`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ difficulty }),
+      body: JSON.stringify({ difficulty, miner_address: connectedMetaMaskAddress || "Network_Miner" }),
     });
     const result = await response.json();
 
@@ -464,7 +472,7 @@ async function handleAccountsChanged(accounts) {
     addressEl.innerText = "0x0000...0000";
     loadClients(); 
   } else {
-    connectedMetaMaskAddress = accounts[0];
+    connectedMetaMaskAddress = accounts[0].toLowerCase(); // Normalize string cases completely
     statusEl.innerText = "Connected";
     statusEl.style.color = "#90ee90";
     addressEl.innerText = connectedMetaMaskAddress;
@@ -489,7 +497,7 @@ function injectWalletToDropdown(dropdownElement, walletValue, labelText) {
   if (!dropdownElement) return;
   for (let i = dropdownElement.options.length - 1; i >= 0; i--) {
     const opt = dropdownElement.options[i];
-    if (opt.value && opt.value.startsWith("0x")) {
+    if (opt.value && opt.value.toLowerCase().startsWith("0x")) {
       dropdownElement.remove(i);
     }
   }

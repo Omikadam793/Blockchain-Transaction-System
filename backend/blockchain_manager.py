@@ -67,8 +67,8 @@ class BlockchainManager:
                 from eth_account.messages import encode_defunct
                 from eth_account import Account
                 
-                # Reconstruct the exact text message string payload signed on the frontend browser interface
-                msg_text = f"Submitting a transaction of {value} coins from {sender_name} to {recipient_name} with gas fee {gas_fee}."
+                # FIX: Explicitly format to 2 decimal places to ensure structural string alignment with frontend javascript (.toFixed(2))
+                msg_text = f"Submitting a transaction of {value:.2f} coins from {sender_name} to {recipient_name} with gas fee {gas_fee:.2f}."
                 message = encode_defunct(text=msg_text)
                 
                 # Recover the public key address that initialized this signing event
