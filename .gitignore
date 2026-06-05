@@ -1,12 +1,47 @@
-.vercel/
+# ─── VIRTUAL ENVIRONMENTS ───
 .venv/
 venv/
+env/
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+
+# ─── PYTHON CACHE & COMPILED BYTES ───
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-.DS_Store
+
+# ─── ENVIRONMENT VARIABLES (CRITICAL SECRETS) ───
+.env
 .env*
-API_DOCUMENTATION.md
+!.env.example
+
+# ─── FRONTEND & DEPLOYMENT RUNTIMES ───
+.vercel/
 .vercel
+node_modules/
+.npm
+.eslintcache
+out/
+.next/
+
+# ─── SYSTEM & IDE SPECIFIC CONFIGS ───
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ─── DOCUMENTATION FALLBACKS (OPTIONAL) ───
+API_DOCUMENTATION.md

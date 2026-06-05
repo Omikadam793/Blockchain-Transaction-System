@@ -47,13 +47,27 @@ def sha256(text: str) -> str:
     return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
 def mine(signatures: list, previous_hash: str, difficulty: int = 2) -> Block:
-    """Computes a valid Proof-of-Work block matching target prefix difficulty conditions."""
+    """Computes a valid Proof-of-Work block matching target prefix difficulty conditions efficiently."""
     target_prefix = '0' * difficulty
     nonce = 0
     
     while True:
-        # Assemble blocks dynamically on-the-fly to test changing nonces against the target prefix
-        block = Block(verified_transactions=signatures, previous_block_hash=previous_hash, nonce=nonce)
-        if block.block_hash.startswith(target_prefix):
-            return block
+        # ─── HIGH PERFORMANCE MINING SEARCH ENGINE ───
+        # Stringify target block attributes directly to calculate hashes with low memory overhead
+        raw_block_data = json.dumps({
+            "transactions": signatures,
+            "previous_hash": previous_hash,
+            "nonce": nonce
+        }, sort_keys=True)
+        
+        current_hash = hashlib.sha256(raw_block_data.encode('utf-8')).hexdigest()
+        
+        # Check if the block satisfies the cryptographic network difficulty
+        if current_hash.startswith(target_prefix):
+            # Once verified, construct the permanent Block payload to return to the manager
+            final_block = Block(verified_transactions=signatures, previous_block_hash=previous_hash, nonce=nonce)
+            final_block.block_data = raw_block_data
+            final_block.block_hash = current_hash
+            return final_block
+            
         nonce += 1

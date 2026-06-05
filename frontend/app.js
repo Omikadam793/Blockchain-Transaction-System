@@ -109,7 +109,7 @@ async function createTransaction() {
     try {
       showMessage("txSuccess", "✍️ Please sign the transaction verification request in your MetaMask extension...");
       
-      const messageToSign = `Submitting a transaction of ${value} coins from ${sender} to ${recipient} with gas fee ${gas_fee}.`;
+      const messageToSign = `Submitting a transaction of {value} coins from ${sender} to ${recipient} with gas fee ${gas_fee}.`;
       
       transactionSignature = await window.ethereum.request({
         method: "personal_sign",
@@ -355,8 +355,9 @@ async function tamperBlock(blockNumber) {
   }
 }
 
+// ─── FIX: ALIGNED PARENT CONTAINER SELECTOR MAPS ───
 function applyVisualChainBreak(brokenFromIndex) {
-  const cards = document.querySelectorAll('.blockchain-visual .block');
+  const cards = document.querySelectorAll('#blockchainVisual .block');
   cards.forEach((card) => {
     const cardIdStr = card.id || "";
     const currentCardNum = parseInt(cardIdStr.replace("block-card-", ""));

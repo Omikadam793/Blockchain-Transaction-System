@@ -151,7 +151,11 @@ button:hover {
   position: relative;
   border: 1px solid #3b2066;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s, background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.block:hover {
+  transform: translateY(-4px);
 }
 
 .block::after {
@@ -167,6 +171,18 @@ button:hover {
 
 .block:last-child::after {
   content: "";
+}
+
+/* ─── ADDED: TAMPERED BREAK GRAPHICS REGISTRY ─── */
+.block.tampered-break {
+  background: #5c1d1d !important;
+  border-color: #ff4444 !important;
+  box-shadow: 0 0 25px rgba(255, 68, 68, 0.4);
+}
+
+.block.tampered-break::after {
+  content: "⚡";
+  color: #ff4444;
 }
 
 .block-header {
