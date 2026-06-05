@@ -1,10 +1,8 @@
 // ==========================================
 // CONFIGURATION & GLOBAL STATE
 // ==========================================
-// Fallback declaration ensuring window context variables from config.js bind flawlessly without redeclaration crashes
-if (typeof API_BASE_URL === 'undefined') {
-    var API_BASE_URL = window.API_BASE_URL || "https://blockchain-transaction-system.onrender.com";
-}
+// Safely resolve the base URL without triggering re-declaration syntax crashes
+var API_BASE_URL = window.API_BASE_URL || "https://blockchain-transaction-system.onrender.com";
 
 let blockchainData = [];
 let connectedMetaMaskAddress = null;
