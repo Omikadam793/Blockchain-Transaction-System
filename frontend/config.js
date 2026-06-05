@@ -1,1 +1,1 @@
-const API_BASE_URL = "https://blockchain-transaction-system.onrender.com/";
+const API_BASE_URL = "https://blockchain-transaction-system.onrender.com";
