@@ -1,1 +1,2 @@
 const API_BASE_URL = "https://blockchain-transaction-system.onrender.com";
+console.log("%c CONFIG CHECK: API DESTINATION PORT ->", "background: #f67d19; color: white; font-weight: bold;", API_BASE_URL);
