@@ -1,4 +1,9 @@
-// API Base URL Configuration (loaded from config.js)
+// ==========================================
+// CONFIGURATION & GLOBAL STATE
+// ==========================================
+// Fallback declaration ensuring window context variables from config.js bind flawlessly
+const API_BASE_URL = window.API_BASE_URL || "https://blockchain-transaction-system.onrender.com";
+
 let blockchainData = [];
 let connectedMetaMaskAddress = null;
 
@@ -47,10 +52,8 @@ async function loadClients() {
 
     if (result.data && Array.isArray(result.data)) {
       result.data.forEach((client) => {
-        // Safe tracking fallback default balance value if not explicitly mapped
         const balance = client.balance !== undefined ? client.balance : 100.00;
 
-        // Render client cards displaying name, raw identity token, and real-time ledger balance
         clientsList.innerHTML += `
           <div class="client-item" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding: 10px; background: #1a1a1a; border: 1px solid #333; border-radius: 4px;">
             <div>
@@ -63,7 +66,6 @@ async function loadClients() {
           </div>
         `;
         
-        // Populate dropdown options with dynamic checking capacities for checking available balance limits
         sender.innerHTML += `<option value="${client.name}">${client.name} (Bal: ${balance.toFixed(2)})</option>`;
         recipient.innerHTML += `<option value="${client.name}">${client.name}</option>`;
       });
@@ -98,8 +100,6 @@ async function createTransaction() {
 
   let transactionSignature = null;
 
-  // ─── CRYPTOGRAPHIC WALLET SIGNING EXTENSION ───
-  // If sending funds from a MetaMask wallet address, request a secure message signature
   if (sender.startsWith("0x")) {
     if (typeof window.ethereum === "undefined") {
       showMessage("txError", "MetaMask extension is required to sign for this wallet address!");
@@ -109,10 +109,8 @@ async function createTransaction() {
     try {
       showMessage("txSuccess", "✍️ Please sign the transaction verification request in your MetaMask extension...");
       
-      // Must match the exact structural string layout reconstructed by backend verification managers
       const messageToSign = `Submitting a transaction of ${value} coins from ${sender} to ${recipient} with gas fee ${gas_fee}.`;
       
-      // Prompt MetaMask interface window to execute low-level account key signatures
       transactionSignature = await window.ethereum.request({
         method: "personal_sign",
         params: [messageToSign, sender],
@@ -124,7 +122,6 @@ async function createTransaction() {
       return;
     }
   }
-  // ──────────────────────────────────────────────
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/transactions`, {
@@ -135,7 +132,7 @@ async function createTransaction() {
         recipient, 
         value, 
         gas_fee,
-        signature: transactionSignature // Pass signature string cleanly along to backend validator
+        signature: transactionSignature
       }),
     });
     
@@ -145,7 +142,7 @@ async function createTransaction() {
       showMessage("txSuccess", "Transaction verified and queued into prioritized Mempool! ✅");
       document.getElementById("amount").value = "";
       loadPendingTransactions();
-      loadClients(); // Reload to capture pre-deduction allocations if tracked by mempool
+      loadClients();
     } else {
       const backendError = result.detail || "Transaction rejected by ledger rules.";
       showMessage("txError", typeof backendError === "object" ? JSON.stringify(backendError) : backendError);
@@ -170,8 +167,6 @@ async function loadPendingTransactions() {
       result.data.forEach((tx) => {
         const senderShort = tx.sender.length > 12 ? `${tx.sender.substring(0, 6)}...${tx.sender.slice(-4)}` : tx.sender;
         const recipientShort = tx.recipient.length > 12 ? `${tx.recipient.substring(0, 6)}...${tx.recipient.slice(-4)}` : tx.recipient;
-        
-        // Show priority visual context if a custom tip parameter exists
         const gasTipLabel = tx.gas_fee !== undefined ? `<span style="float: right; color: #90ee90; font-size: 0.85em;">⛽ Fee: ${tx.gas_fee}</span>` : "";
 
         pendingList.innerHTML += `
@@ -213,7 +208,7 @@ async function mineBlock() {
     if (result.success) {
       loadBlockchain();
       loadPendingTransactions();
-      loadClients(); // Dynamically updates ledger allocations across client cards post-mining
+      loadClients();
     }
   } catch (error) {
     alert("Error mining block: " + error.message);
@@ -238,7 +233,6 @@ async function loadBlockchain() {
       visual.innerHTML = '<div class="empty-state">No blocks yet. Create clients, transactions, and mine your first block!</div>';
     } else {
       visual.innerHTML = "";
-      
       let localBreakTriggered = false;
 
       blockchainData.forEach((block, index) => {
