@@ -1,8 +1,10 @@
 // ==========================================
 // CONFIGURATION & GLOBAL STATE
 // ==========================================
-// Safely resolve the base URL without triggering re-declaration syntax crashes
-var API_BASE_URL = window.API_BASE_URL || "https://blockchain-transaction-system.onrender.com";
+// Check if config.js already set it on the window object; otherwise use the fallback
+if (!window.API_BASE_URL) {
+    window.API_BASE_URL = "https://blockchain-transaction-system.onrender.com";
+}
 
 let blockchainData = [];
 let connectedMetaMaskAddress = null;
@@ -18,7 +20,7 @@ async function createClient() {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/clients`, {
+    const response = await fetch(`${window.API_BASE_URL}/api/clients`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -37,7 +39,7 @@ async function createClient() {
 
 async function loadClients() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/clients`);
+    const response = await fetch(`${window.API_BASE_URL}/api/clients`);
     const result = await response.json();
 
     const clientsList = document.getElementById("clientsList");
@@ -124,7 +126,7 @@ async function createTransaction() {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/transactions`, {
+    const response = await fetch(`${window.API_BASE_URL}/api/transactions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
@@ -154,7 +156,7 @@ async function createTransaction() {
 
 async function loadPendingTransactions() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/transactions/pending`);
+    const response = await fetch(`${window.API_BASE_URL}/api/transactions/pending`);
     const result = await response.json();
 
     const pendingList = document.getElementById("pendingList");
@@ -198,7 +200,7 @@ async function mineBlock() {
   document.getElementById("miningStatus").style.display = "block";
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/mine`, {
+    const response = await fetch(`${window.API_BASE_URL}/api/mine`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ difficulty }),
@@ -222,7 +224,7 @@ async function mineBlock() {
 // ==========================================
 async function loadBlockchain() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/blockchain`);
+    const response = await fetch(`${window.API_BASE_URL}/api/blockchain`);
     const result = await response.json();
     blockchainData = result.data || [];
 
@@ -325,7 +327,7 @@ function closeModal(event) {
 
 async function validateBlockchain() {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/validate`);
+    const response = await fetch(`${window.API_BASE_URL}/api/validate`);
     const result = await response.json();
     if (result.success && result.data.valid) {
       showMessage("validateSuccess", result.data.message);
@@ -340,7 +342,7 @@ async function validateBlockchain() {
 
 async function tamperBlock(blockNumber) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/tamper/${blockNumber}`, { method: "POST" });
+    const response = await fetch(`${window.API_BASE_URL}/api/tamper/${blockNumber}`, { method: "POST" });
     const result = await response.json();
     if (result.success) {
       applyVisualChainBreak(blockNumber);
@@ -373,7 +375,7 @@ function applyVisualChainBreak(brokenFromIndex) {
 async function resetBlockchain() {
   if (!confirm("Are you sure you want to reset the entire blockchain?")) return;
   try {
-    const response = await fetch(`${API_BASE_URL}/api/reset`, { method: "POST" });
+    const response = await fetch(`${window.API_BASE_URL}/api/reset`, { method: "POST" });
     const result = await response.json();
     if (result.success) {
       showMessage("validateSuccess", "Blockchain reset successfully!");
@@ -462,7 +464,7 @@ async function handleAccountsChanged(accounts) {
     addressEl.innerText = connectedMetaMaskAddress;
 
     try {
-      await fetch(`${API_BASE_URL}/api/clients`, {
+      await fetch(`${window.API_BASE_URL}/api/clients`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: connectedMetaMaskAddress }),
@@ -495,7 +497,7 @@ function injectWalletToDropdown(dropdownElement, walletValue, labelText) {
 // INITIALIZATION
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("%c CONFIG CHECK: API DESTINATION PORT ->", "background: #f67d19; color: white; font-weight: bold;", API_BASE_URL);
+  console.log("%c CONFIG CHECK: API DESTINATION PORT ->", "background: #f67d19; color: white; font-weight: bold;", window.API_BASE_URL);
   
   const savedTheme = localStorage.getItem("theme");
   const themeToggle = document.getElementById("themeToggle");
