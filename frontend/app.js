@@ -152,7 +152,7 @@ async function createTransaction() {
     return;
   }
 
-  // DYNAMIC RESOLUTION LAYER
+  // DYNAMIC RESOLUTION LAYER - Default to inputs
   let sender = senderValue.toLowerCase();
   let recipient = recipientValue.toLowerCase();
 
@@ -160,7 +160,8 @@ async function createTransaction() {
   if (!senderValue.startsWith("0x")) {
     const matchedSender = clientRegistryCache.find(c => c.name === senderValue);
     if (matchedSender) {
-      sender = (matchedSender.id || matchedSender.identity || matchedSender.address || matchedSender.client_id || matchedSender.name).toLowerCase();
+      const addressLookup = matchedSender.address || matchedSender.id || matchedSender.identity || matchedSender.client_id || matchedSender.name;
+      sender = addressLookup.toLowerCase();
     }
   }
   
@@ -168,7 +169,8 @@ async function createTransaction() {
   if (!recipientValue.startsWith("0x")) {
     const matchedRecipient = clientRegistryCache.find(c => c.name === recipientValue);
     if (matchedRecipient) {
-      recipient = (matchedRecipient.id || matchedRecipient.identity || matchedRecipient.address || matchedRecipient.client_id || matchedRecipient.name).toLowerCase();
+      const addressLookup = matchedRecipient.address || matchedRecipient.id || matchedRecipient.identity || matchedRecipient.client_id || matchedRecipient.name;
+      recipient = addressLookup.toLowerCase();
     }
   }
 
@@ -305,7 +307,7 @@ async function mineBlock() {
       alert("Mining operation encountered an error: " + (result.detail || "Unknown error"));
     }
   } catch (error) {
-    alert("Error mining block: " + error.message);
+    alert("Error mine block: " + error.message);
   } finally {
     if (statusEl) statusEl.style.display = "none";
   }
