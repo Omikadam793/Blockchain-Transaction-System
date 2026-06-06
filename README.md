@@ -1,4 +1,4 @@
-# Layer 1 Blockchain Simulation Engine & Visualizer 🪙
+# Blockchain Transaction System 🪙
 
 A high-performance, self-contained **Layer 1 Blockchain Sandbox Simulation Engine** built from the ground up using **Python (FastAPI)** and asynchronous **JavaScript (ES6+)**. This project completely bypasses external Web3 wallet extension dependencies (like MetaMask) or local testnets (like Hardhat) to expose a raw, highly educational, and lightning-fast architectural deep-dive into how distributed cryptographic ledgers behave under the hood.
 
