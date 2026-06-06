@@ -84,3 +84,44 @@ pip install fastapi uvicorn pydantic
 
 # Boot up the local development hot-reload server
 uvicorn app:app --reload --port 8000
+
+## 🖥️ Launch the Web Visualizer
+
+1. Open a new terminal window and navigate to the `frontend` directory.
+
+2. In `config.js`, ensure that `API_BASE_URL` points to your local backend server:
+
+```javascript
+const API_BASE_URL = "http://127.0.0.1:8000";
+```
+
+3. Launch the frontend using any local web server. You can:
+
+   * Open `index.html` using the VS Code **Live Server** extension, or
+   * Run a simple Python server:
+
+```bash
+python -m http.server 5500
+```
+
+4. Open your browser and navigate to:
+
+```text
+http://localhost:5500
+```
+
+---
+
+## 📈 System Extension Roadmap
+
+### 🔐 Asymmetric Public-Key Signatures
+
+Introduce mock RSA/ECDSA key-pair generation within the frontend, allowing users to create and sign transactions using simulated private keys before submitting them to the backend transaction queue.
+
+### 📜 Smart Contract Layer Visualizer
+
+Add a dedicated smart contract editor where users can create simple IF/THEN transaction rules. These contracts can automatically trigger token transfers or actions when predefined conditions, such as balance thresholds, are met.
+
+### ⚡ Real-Time Event Updates
+
+Integrate WebSockets to provide instant updates for new transactions, mined blocks, and chain validation results without requiring manual page refreshes.
