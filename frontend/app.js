@@ -233,6 +233,12 @@ async function loadBlockchain() {
         `;
       });
     }
+
+    // Refresh the Global Search Explorer anytime a new block gets loaded
+    if (typeof renderGlobalExplorer === "function") {
+      renderGlobalExplorer();
+    }
+
   } catch (error) {
     console.error("Error loading blockchain visual timeline:", error);
   }
@@ -338,18 +344,6 @@ function toggleTheme() {
 }
 
 // ==========================================
-// INITIALIZATION
-// ==========================================
-document.addEventListener("DOMContentLoaded", async () => {
-  if (localStorage.getItem("theme") === "light") {
-    document.body.classList.add("light-mode");
-  }
-  await loadClients();
-  await loadPendingTransactions();
-  await loadBlockchain();
-});
-
-// ==========================================
 // DYNAMIC NETWORK METRICS PANEL
 // ==========================================
 function updateNetworkAnalytics() {
@@ -358,14 +352,11 @@ function updateNetworkAnalytics() {
   const statCirculation = document.getElementById("statCirculation");
   const statStatus = document.getElementById("statStatus");
 
-  // Prevent errors if the elements aren't loaded yet
   if (!statBlocks || !statMempool || !statCirculation || !statStatus) return;
 
-  // 1. Calculate Total Blocks from existing blockchain array
   if (typeof blockchainData !== 'undefined' && Array.isArray(blockchainData)) {
     statBlocks.textContent = blockchainData.length;
     
-    // 4. Update ledger safety banner based on tampered flags in data
     const hasTamper = blockchainData.some(block => block.is_tampered === true);
     if (hasTamper) {
       statStatus.textContent = "BREACHED ⚠️";
@@ -376,19 +367,16 @@ function updateNetworkAnalytics() {
     }
   }
 
-  // 2. Calculate Mempool Size directly from the UI items list
   const pendingList = document.getElementById("pendingList");
   const pendingCount = pendingList ? pendingList.getElementsByClassName("transaction-item").length : 0;
   statMempool.textContent = pendingCount;
 
-  // 3. Calculate Total Coin Circulation across visible clients
   const clientsList = document.getElementById("clientsList");
   let totalCoins = 0;
   if (clientsList) {
     const coinElements = clientsList.getElementsByTagName("strong");
     for (let i = 0; i < coinElements.length; i++) {
       if (coinElements[i].textContent.includes("🪙")) {
-        // Strip out the emoji and text to get the clean decimal number
         const val = parseFloat(coinElements[i].textContent.replace(/[^\d.]/g, ""));
         if (!isNaN(val)) totalCoins += val;
       }
@@ -397,10 +385,79 @@ function updateNetworkAnalytics() {
   statCirculation.textContent = totalCoins > 0 ? `${totalCoins.toFixed(2)} 🪙` : "0.00 🪙";
 }
 
-// Start the live sync tracking loop as soon as the app boots up
-document.addEventListener("DOMContentLoaded", () => {
-  // Run it immediately on load
-  setTimeout(updateNetworkAnalytics, 1000);
-  // Keep refreshing it every 1.5 seconds automatically
+// ==========================================
+// GLOBAL TRANSACTION EXPLORER LEDGER
+// ==========================================
+function renderGlobalExplorer() {
+  const explorerList = document.getElementById("globalTxExplorerList");
+  if (!explorerList || typeof blockchainData === 'undefined' || !blockchainData) return;
+
+  let allTransactions = [];
+  blockchainData.forEach(block => {
+    if (block.transactions && block.transactions.length > 0) {
+      block.transactions.forEach(tx => {
+        allTransactions.push({
+          sender: tx.sender || "Unknown",
+          recipient: tx.recipient || "Unknown",
+          value: parseFloat(tx.value) || 0.0,
+          gas_fee: tx.gas_fee !== undefined ? tx.gas_fee : 0.05,
+          blockOrigin: block.block_number !== undefined ? block.block_number : 0
+        });
+      });
+    }
+  });
+
+  if (allTransactions.length === 0) {
+    explorerList.innerHTML = `<div class="empty-state" style="padding: 20px;">No transactions settled on-chain yet.</div>`;
+    return;
+  }
+
+  allTransactions.reverse();
+
+  explorerList.innerHTML = allTransactions.map(tx => `
+    <div class="transaction-item tx-explorer-row" data-users="${String(tx.sender).toLowerCase()} ${String(tx.recipient).toLowerCase()}" style="border-left: 3px solid #00b894; display: flex; justify-content: space-between; align-items: center; padding: 12px; margin-bottom: 8px;">
+      <div class="transaction-flow">
+        <span class="flow-sender">${tx.sender}</span>
+        <span class="flow-arrow">➔</span>
+        <span class="flow-recipient">${tx.recipient}</span>
+      </div>
+      <div style="font-size: 0.9em; text-align: right;">
+        <strong style="color: #90ee90;">+${tx.value.toFixed(2)} 🪙</strong>
+        <div style="font-size: 0.75em; color: #888;">Block #${tx.blockOrigin} • Tip: ${tx.gas_fee}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterTransactions() {
+  const searchVal = document.getElementById("txSearchInput").value.toLowerCase();
+  const rows = document.getElementsByClassName("tx-explorer-row");
+  
+  for (let i = 0; i < rows.length; i++) {
+    const userTags = rows[i].getAttribute("data-users");
+    if (userTags.includes(searchVal)) {
+      rows[i].style.display = "flex";
+    } else {
+      rows[i].style.display = "none";
+    }
+  }
+}
+
+// ==========================================
+// UNIFIED ORCHESTRATION BOOTSTRAPPER
+// ==========================================
+document.addEventListener("DOMContentLoaded", async () => {
+  // 1. Establish Theme Overrides
+  if (localStorage.getItem("theme") === "light") {
+    document.body.classList.add("light-mode");
+  }
+  
+  // 2. Fetch Core Backend API State Data
+  await loadClients();
+  await loadPendingTransactions();
+  await loadBlockchain(); // Automatically triggers explorer panel display inside it
+  
+  // 3. Fire Analytics and Kickstart Real-Time Calculation Loop
+  updateNetworkAnalytics();
   setInterval(updateNetworkAnalytics, 1500);
 });
