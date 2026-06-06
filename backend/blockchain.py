@@ -4,6 +4,7 @@ import json
 
 class Client:
     def __init__(self):
+        # Generates a clean 40-character unique hex identifier string
         self.identity = hashlib.sha256(str(time.time()).encode('utf-8')).hexdigest()[:40]
 
 class Transaction:
@@ -21,7 +22,8 @@ class Transaction:
             "value": self.value,
             "time": self.time
         }
-        tx_string = json.dumps(tx_dict, sort_keys=True)
+        # Explicit separators enforce absolute structural string consistency across environments
+        tx_string = json.dumps(tx_dict, sort_keys=True, separators=(',', ':'))
         return hashlib.sha256(tx_string.encode('utf-8')).hexdigest()
 
 class Block:
@@ -29,12 +31,13 @@ class Block:
         self.verified_transactions = verified_transactions
         self.previous_block_hash = previous_block_hash
         self.nonce = nonce
-        # Standardized tracking format logic prevents UI 'Chain Broken' structural warning alerts
+        
+        # Enforce exact structural compression formatting to guarantee predictable cryptographic hashing
         self.block_data = json.dumps({
             "transactions": verified_transactions,
             "previous_hash": previous_block_hash,
             "nonce": nonce
-        }, sort_keys=True)
+        }, sort_keys=True, separators=(',', ':'))
         self.block_hash = self.calculate_hash()
 
     def calculate_hash(self) -> str:
@@ -48,15 +51,17 @@ def mine(signatures: list, previous_hash: str, difficulty: int = 2) -> Block:
     nonce = 0
     
     while True:
+        # Must match separators=(',', ':') exactly with the Block class structure
         raw_block_data = json.dumps({
             "transactions": signatures,
             "previous_hash": previous_hash,
             "nonce": nonce
-        }, sort_keys=True)
+        }, sort_keys=True, separators=(',', ':'))
         
         current_hash = hashlib.sha256(raw_block_data.encode('utf-8')).hexdigest()
         
         if current_hash.startswith(target_prefix):
+            # Instantiate the block using our validated parameters cleanly
             final_block = Block(verified_transactions=signatures, previous_block_hash=previous_hash, nonce=nonce)
             final_block.block_data = raw_block_data
             final_block.block_hash = current_hash

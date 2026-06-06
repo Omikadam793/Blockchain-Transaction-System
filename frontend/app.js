@@ -63,7 +63,7 @@ async function loadClients() {
 
       result.data.forEach((client) => {
         const balance = client.balance !== undefined ? client.balance : 100.00;
-        const accountAddress = (client.id || client.identity || client.address || client.client_id || client.name).toLowerCase();
+        const accountAddress = (client.id || client.identity || client.address || client.client_id || client.name);
 
         // Skip raw standalone 0x web3 addresses from the sandbox sidebar
         if (client.name.startsWith("0x")) return;
@@ -86,11 +86,11 @@ async function loadClients() {
       });
     }
 
-    // Safely append active MetaMask interface targets using the raw lowercased 0x address as value
+    // Safely append active MetaMask interface targets using the raw case-preserved 0x address as value
     if (connectedMetaMaskAddress) {
       const metaMaskLabel = `🦊 MetaMask (${connectedMetaMaskAddress.substring(0, 6)}...${connectedMetaMaskAddress.slice(-4)})`;
-      injectWalletToDropdown(sender, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
-      injectWalletToDropdown(recipient, connectedMetaMaskAddress.toLowerCase(), metaMaskLabel);
+      injectWalletToDropdown(sender, connectedMetaMaskAddress, metaMaskLabel);
+      injectWalletToDropdown(recipient, connectedMetaMaskAddress, metaMaskLabel);
     }
 
     // Restore dropdown options by structural string names to survive backend engine recycles
@@ -125,7 +125,7 @@ function injectWalletToDropdown(dropdownElement, walletValue, labelText) {
     }
   }
   const newOption = document.createElement("option");
-  newOption.value = walletValue.toLowerCase();
+  newOption.value = walletValue; // Keeps EIP-55 checksum case formats healthy
   newOption.text = labelText;
   dropdownElement.appendChild(newOption);
 }
@@ -152,16 +152,15 @@ async function createTransaction() {
     return;
   }
 
-  // DYNAMIC RESOLUTION LAYER - Default to inputs
-  let sender = senderValue.toLowerCase();
-  let recipient = recipientValue.toLowerCase();
+  // DYNAMIC RESOLUTION LAYER - Preserve initial case configuration for backend signature compatibility
+  let sender = senderValue;
+  let recipient = recipientValue;
 
   // If sender value isn't a MetaMask 0x address, find its current live database identity hex string
   if (!senderValue.startsWith("0x")) {
     const matchedSender = clientRegistryCache.find(c => c.name === senderValue);
     if (matchedSender) {
-      const addressLookup = matchedSender.address || matchedSender.id || matchedSender.identity || matchedSender.client_id || matchedSender.name;
-      sender = addressLookup.toLowerCase();
+      sender = matchedSender.address || matchedSender.id || matchedSender.identity || matchedSender.client_id || matchedSender.name;
     }
   }
   
@@ -169,12 +168,11 @@ async function createTransaction() {
   if (!recipientValue.startsWith("0x")) {
     const matchedRecipient = clientRegistryCache.find(c => c.name === recipientValue);
     if (matchedRecipient) {
-      const addressLookup = matchedRecipient.address || matchedRecipient.id || matchedRecipient.identity || matchedRecipient.client_id || matchedRecipient.name;
-      recipient = addressLookup.toLowerCase();
+      recipient = matchedRecipient.address || matchedRecipient.id || matchedRecipient.identity || matchedRecipient.client_id || matchedRecipient.name;
     }
   }
 
-  if (sender === recipient) {
+  if (sender.toLowerCase() === recipient.toLowerCase()) {
     showMessage("txError", "Transaction rejected: Sender and Recipient cannot be identical.");
     return;
   }
@@ -188,7 +186,7 @@ async function createTransaction() {
       return;
     }
     
-    if (sender !== connectedMetaMaskAddress) {
+    if (sender.toLowerCase() !== connectedMetaMaskAddress.toLowerCase()) {
       showMessage("txError", `Active MetaMask account (${connectedMetaMaskAddress.substring(0,6)}...) does not match selected sender.`);
       return;
     }
@@ -196,6 +194,7 @@ async function createTransaction() {
     try {
       showMessage("txSuccess", "✍️ Please sign the transaction verification request in your MetaMask extension...");
       
+      // Reconstructed plaintext string layout matching exactly with the backend message assembly format
       const messageToSign = `Submitting a transaction of ${value.toFixed(2)} coins from ${sender} to ${recipient} with gas fee ${gas_fee.toFixed(2)}.`;
       
       const encoder = new TextEncoder();
@@ -411,7 +410,6 @@ async function showBlockDetails(blockNumber) {
   document.getElementById("blockModal").style.display = "flex";
 }
 
-// Close helper
 function closeModal(event) {
   const modal = document.getElementById("blockModal");
   if (!modal) return;
@@ -543,7 +541,7 @@ async function handleAccountsChanged(accounts) {
     addressEl.innerText = "0x0000...0000";
     await loadClients(); 
   } else {
-    connectedMetaMaskAddress = accounts[0].toLowerCase();
+    connectedMetaMaskAddress = accounts[0]; // Preserves native checksum formatting configuration strings
     statusEl.innerText = "Connected";
     statusEl.style.color = "#90ee90";
     addressEl.innerText = connectedMetaMaskAddress;
