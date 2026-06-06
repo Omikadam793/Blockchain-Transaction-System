@@ -348,3 +348,59 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadPendingTransactions();
   await loadBlockchain();
 });
+
+// ==========================================
+// DYNAMIC NETWORK METRICS PANEL
+// ==========================================
+function updateNetworkAnalytics() {
+  const statBlocks = document.getElementById("statBlocks");
+  const statMempool = document.getElementById("statMempool");
+  const statCirculation = document.getElementById("statCirculation");
+  const statStatus = document.getElementById("statStatus");
+
+  // Prevent errors if the elements aren't loaded yet
+  if (!statBlocks || !statMempool || !statCirculation || !statStatus) return;
+
+  // 1. Calculate Total Blocks from existing blockchain array
+  if (typeof blockchainData !== 'undefined' && Array.isArray(blockchainData)) {
+    statBlocks.textContent = blockchainData.length;
+    
+    // 4. Update ledger safety banner based on tampered flags in data
+    const hasTamper = blockchainData.some(block => block.is_tampered === true);
+    if (hasTamper) {
+      statStatus.textContent = "BREACHED ⚠️";
+      statStatus.style.color = "#ff4444";
+    } else {
+      statStatus.textContent = "SECURE ✅";
+      statStatus.style.color = "#00b894";
+    }
+  }
+
+  // 2. Calculate Mempool Size directly from the UI items list
+  const pendingList = document.getElementById("pendingList");
+  const pendingCount = pendingList ? pendingList.getElementsByClassName("transaction-item").length : 0;
+  statMempool.textContent = pendingCount;
+
+  // 3. Calculate Total Coin Circulation across visible clients
+  const clientsList = document.getElementById("clientsList");
+  let totalCoins = 0;
+  if (clientsList) {
+    const coinElements = clientsList.getElementsByTagName("strong");
+    for (let i = 0; i < coinElements.length; i++) {
+      if (coinElements[i].textContent.includes("🪙")) {
+        // Strip out the emoji and text to get the clean decimal number
+        const val = parseFloat(coinElements[i].textContent.replace(/[^\d.]/g, ""));
+        if (!isNaN(val)) totalCoins += val;
+      }
+    }
+  }
+  statCirculation.textContent = totalCoins > 0 ? `${totalCoins.toFixed(2)} 🪙` : "0.00 🪙";
+}
+
+// Start the live sync tracking loop as soon as the app boots up
+document.addEventListener("DOMContentLoaded", () => {
+  // Run it immediately on load
+  setTimeout(updateNetworkAnalytics, 1000);
+  // Keep refreshing it every 1.5 seconds automatically
+  setInterval(updateNetworkAnalytics, 1500);
+});
