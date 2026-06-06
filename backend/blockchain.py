@@ -3,22 +3,23 @@ import hashlib
 import json
 
 class Client:
-    def __init__(self):
-        # Generates a clean 40-character unique hex identifier string
-        self.identity = hashlib.sha256(str(time.time()).encode('utf-8')).hexdigest()[:40]
+    def __init__(self, name: str):
+        # The user's plain text name IS their unique identifier now
+        self.identity = name
 
 class Transaction:
-    def __init__(self, sender: Client, recipient: Client, value: float):
+    def __init__(self, sender: str, recipient: str, value: float):
+        # Accepting plain text strings directly instead of complex objects
         self.sender = sender
         self.recipient = recipient
         self.value = value
         self.time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-        self.gas_fee = 0.0  
+        self.gas_fee = 0.05  
 
     def sign_transaction(self) -> str:
         tx_dict = {
-            "sender": self.sender.identity if hasattr(self.sender, 'identity') else str(self.sender),
-            "recipient": self.recipient.identity if hasattr(self.recipient, 'identity') else str(self.recipient),
+            "sender": str(self.sender),
+            "recipient": str(self.recipient),
             "value": self.value,
             "time": self.time
         }
@@ -31,6 +32,7 @@ class Block:
         self.verified_transactions = verified_transactions
         self.previous_block_hash = previous_block_hash
         self.nonce = nonce
+        self.is_tampered = False
         
         # Enforce exact structural compression formatting to guarantee predictable cryptographic hashing
         self.block_data = json.dumps({
@@ -42,6 +44,17 @@ class Block:
 
     def calculate_hash(self) -> str:
         return hashlib.sha256(self.block_data.encode('utf-8')).hexdigest()
+
+    def to_dict(self) -> dict:
+        return {
+            "block_number": getattr(self, 'block_number', 0),
+            "timestamp": time.time(),
+            "transactions": self.verified_transactions,
+            "nonce": self.nonce,
+            "previous_hash": self.previous_block_hash,
+            "block_hash": self.block_hash,
+            "is_tampered": self.is_tampered
+        }
 
 def sha256(text: str) -> str:
     return hashlib.sha256(text.encode('utf-8')).hexdigest()

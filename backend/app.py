@@ -1,218 +1,225 @@
-import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, model_validator
-from typing import Optional
-import uvicorn
-from dotenv import load_dotenv
-from blockchain_manager import BlockchainManager
+from pydantic import BaseModel
+from typing import List, Dict, Optional
+import hashlib
+import json
+import time
 
-# Load environmental configurations
-load_dotenv()
+app = FastAPI(title="Blockchain Sandbox Engine")
 
-app = FastAPI(
-    title="Blockchain Visualizer API",
-    version="1.0.0"
-)
-
-# --- PRODUCTION-READY CORS CONFIGURATION ---
-# Includes fallback origins for your Vercel URL, local apps, and MetaMask workflows
-raw_origins = os.getenv(
-    "CORS_ORIGINS", 
-    "http://localhost:3000,http://127.0.0.1:3000,https://blockchain-transaction-system.vercel.app"
-)
-allowed_origins_list = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
-
+# Configure CORS so your Vercel or local frontend can talk to it cleanly
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins_list,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize blockchain engine
-blockchain_manager = BlockchainManager()
+# ==========================================
+# DATA MODELS (SCHEMAS)
+# ==========================================
+class ClientCreateSchema(BaseModel):
+    name: str
 
-# --- Pydantic Data Validation Schemas ---
+class TransactionSchema(BaseModel):
+    sender: str
+    recipient: str
+    value: float
+    gas_fee: float
 
-class ClientCreate(BaseModel):
-    name: str = Field(..., min_length=1)
+class MineRequestSchema(BaseModel):
+    difficulty: int
+    miner_address: str
 
-class TransactionCreate(BaseModel):
-    sender: str = Field(..., min_length=1)
-    recipient: str = Field(..., min_length=1)
-    value: float = Field(..., gt=0)
-    gas_fee: float = Field(0.0, ge=0) 
-    signature: Optional[str] = None  # PHASE 2 EXTENSION: Accept the cryptographically signed hash string from frontend
+# ==========================================
+# IN-MEMORY STORAGE STATE
+# ==========================================
+# Simple global tracking dictionaries
+client_database_registry: Dict[str, Dict] = {
+    "Alice": {"name": "Alice", "balance": 500.0},
+    "Bob": {"name": "Bob", "balance": 500.0}
+}
+mempool_pending_transactions: List[Dict] = []
+blockchain_ledger: List[Dict] = []
 
-    @model_validator(mode="before")
-    @classmethod
-    def resolve_identities_and_names(cls, data: dict) -> dict:
-        """
-        Intercepts incoming payloads to map human-readable names ('Omkar') 
-        to their underlying cryptographic database registry tokens automatically.
-        """
-        if not isinstance(data, dict):
-            return data
+# Create the initial Genesis Block to boot the ledger
+def create_genesis_block():
+    genesis_block = {
+        "block_number": 0,
+        "timestamp": time.time(),
+        "transactions": [],
+        "nonce": 0,
+        "previous_hash": "0" * 64,
+        "block_hash": "0" * 64,
+        "is_tampered": False
+    }
+    blockchain_ledger.append(genesis_block)
 
-        sender_input = str(data.get("sender", "")).strip()
-        recipient_input = str(data.get("recipient", "")).strip()
+create_genesis_block()
 
-        # If blockchain_manager has a client list, look up the raw identities
-        if hasattr(blockchain_manager, "get_all_clients"):
-            all_clients = blockchain_manager.get_all_clients()
-            
-            # Resolve Sender Name -> Address/ID
-            if not sender_input.startswith("0x"):
-                for client in all_clients:
-                    if isinstance(client, dict) and client.get("name", "").lower() == sender_input.lower():
-                        data["sender"] = client.get("id") or client.get("address") or client.get("identity") or client.get("client_id") or sender_input
-                        break
+# ==========================================
+# CRYPTOGRAPHIC UTILITIES
+# ==========================================
+def calculate_block_hash(block: Dict) -> str:
+    # Hash calculation excluding the hash itself
+    hash_payload = {
+        "block_number": block["block_number"],
+        "timestamp": block["timestamp"],
+        "transactions": block["transactions"],
+        "nonce": block["nonce"],
+        "previous_hash": block["previous_hash"]
+    }
+    block_string = json.dumps(hash_payload, sort_keys=True).encode()
+    return hashlib.sha256(block_string).hexdigest()
 
-            # Resolve Recipient Name -> Address/ID
-            if not recipient_input.startswith("0x"):
-                for client in all_clients:
-                    if isinstance(client, dict) and client.get("name", "").lower() == recipient_input.lower():
-                        data["recipient"] = client.get("id") or client.get("address") or client.get("identity") or client.get("client_id") or recipient_input
-                        break
+# ==========================================
+# API ENDPOINTS
+# ==========================================
 
-        return data
-
-    @model_validator(mode="after")
-    def check_distinct_parties(self):
-        if self.sender.lower() == self.recipient.lower():
-            raise ValueError("Sender and recipient accounts must be distinct.")
-        return self
-
-class MineRequest(BaseModel):
-    difficulty: int = Field(2, ge=1, le=6)
-    miner_address: str = Field("Network_Miner", min_length=1) 
-
-# --- API Endpoints ---
-
-@app.get("/")
-def home():
-    return {"status": "running", "environment": "production"}
+# 1. CLIENTS MANAGEMENT
+@app.get("/api/clients")
+async def get_clients():
+    data = list(client_database_registry.values())
+    return {"success": True, "data": data}
 
 @app.post("/api/clients")
-def create_client(client: ClientCreate):
-    try:
-        result = blockchain_manager.create_client(client.name)
-        return {"success": True, "data": result}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+async def create_client(client: ClientCreateSchema):
+    name = client.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Client name cannot be blank.")
+    if name in client_database_registry:
+        raise HTTPException(status_code=400, detail="Client name already exists inside the sandbox.")
+    
+    client_database_registry[name] = {"name": name, "balance": 100.0}
+    return {"success": True, "detail": f"Client {name} successfully initialized."}
 
-@app.get("/api/clients")
-def get_clients():
-    return {"success": True, "data": blockchain_manager.get_all_clients()}
+# 2. TRANSACTIONS & MEMPOOL
+@app.get("/api/transactions/pending")
+async def get_pending_transactions():
+    return {"success": True, "data": mempool_pending_transactions}
 
 @app.post("/api/transactions")
-def create_transaction(transaction: TransactionCreate):
-    try:
-        # Enforce strict balance limits including gas deductibility overhead using the resolved sender key
-        if hasattr(blockchain_manager, "get_balance"):
-            try:
-                current_balance = blockchain_manager.get_balance(transaction.sender)
-            except Exception:
-                # If lookup by resolved ID fails, try a fallback search by name string directly
-                current_balance = 0
-                if hasattr(blockchain_manager, "get_all_clients"):
-                    for c in blockchain_manager.get_all_clients():
-                        if isinstance(c, dict) and (c.get("id") == transaction.sender or c.get("address") == transaction.sender or c.get("name") == transaction.sender):
-                            current_balance = c.get("balance", 0)
-                            break
-            
-            total_deduction = transaction.value + transaction.gas_fee
-            if current_balance < total_deduction:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Insufficient funds. Required: {total_deduction} (Amount: {transaction.value} + Gas: {transaction.gas_fee}). Balance: {current_balance}"
-                )
+async def create_transaction(tx: TransactionSchema):
+    # Resiliency Fallback: Re-register user dynamically if Render woke up from a sleep wipe
+    if tx.sender not in client_database_registry:
+        client_database_registry[tx.sender] = {"name": tx.sender, "balance": 100.0}
+    if tx.recipient not in client_database_registry:
+        client_database_registry[tx.recipient] = {"name": tx.recipient, "balance": 100.0}
 
-        # Update manager interface invocation parameters to accept gas fees and cryptographic signatures
-        if hasattr(blockchain_manager, "create_transaction_with_gas"):
-            result = blockchain_manager.create_transaction_with_gas(
-                transaction.sender,
-                transaction.recipient,
-                transaction.value,
-                transaction.gas_fee,
-                transaction.signature  # Forward signature parameters straight to verification checks
-            )
-        else:
-            # Fallback to structural positional arguments or classic dynamic attribute patching
-            try:
-                result = blockchain_manager.create_transaction(
-                    transaction.sender,
-                    transaction.recipient,
-                    transaction.value
-                )
-            except Exception as engine_err:
-                # Ultimate Fail-Safe: If engine registry raises an internal lookup blueprint error,
-                # force fallback using original human strings to preserve cross-platform runtime execution
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Sender or recipient not found within engine registry blueprints. System evaluated: Sender='{transaction.sender}', Recipient='{transaction.recipient}'. Error: {str(engine_err)}"
-                )
+    sender_account = client_database_registry[tx.sender]
+    total_cost = tx.value + tx.gas_fee
 
-            if hasattr(blockchain_manager, 'pending_transactions') and blockchain_manager.pending_transactions:
-                blockchain_manager.pending_transactions[-1]['gas_fee'] = transaction.gas_fee
-                blockchain_manager.pending_transactions.sort(key=lambda x: x.get('gas_fee', 0), reverse=True)
-                
-        return {"success": True, "data": result}
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    if sender_account["balance"] < total_cost:
+        raise HTTPException(status_code=400, detail=f"Insufficient funds. Required: {total_cost} coins.")
 
-@app.get("/api/transactions/pending")
-def get_pending_transactions():
-    return {"success": True, "data": blockchain_manager.get_pending_transactions()}
+    # Deduct funds immediately upon staging to mempool
+    sender_account["balance"] -= total_cost
 
+    tx_data = {
+        "sender": tx.sender,
+        "recipient": tx.recipient,
+        "value": tx.value,
+        "gas_fee": tx.gas_fee,
+        "timestamp": time.time()
+    }
+    # Priority Queue: Higher gas fees stay at the top of the stack
+    mempool_pending_transactions.append(tx_data)
+    mempool_pending_transactions.sort(key=lambda x: x["gas_fee"], reverse=True)
+
+    return {"success": True, "detail": "Transaction verified and staged into Mempool."}
+
+# 3. PROOF OF WORK MINING ENGINE
 @app.post("/api/mine")
-def mine_block(mine_request: MineRequest):
-    try:
-        # Calculate sum total accumulated gas fee tips sitting in mempool pool arrays before processing validation blocks
-        pending_txs = blockchain_manager.get_pending_transactions()
-        accumulated_fees = sum(tx.get('gas_fee', 0) for tx in pending_txs if isinstance(tx, dict))
-        block_reward = 10.0 + accumulated_fees # Base reward (10 coins) + premium tips combo payout
+async def mine_block(req: MineRequestSchema):
+    global mempool_pending_transactions
+    if not mempool_pending_transactions:
+        raise HTTPException(status_code=400, detail="Mempool is completely empty. Nothing to mine!")
 
-        # Execute cryptographic proof work calculation sequence engines
-        result = blockchain_manager.mine_block(mine_request.difficulty)
-        
-        # Credit the mining client address node with their block reward payout collections
-        if hasattr(blockchain_manager, "credit_balance"):
-            blockchain_manager.credit_balance(mine_request.miner_address, block_reward)
-        
-        if hasattr(blockchain_manager, "save_to_disk"):
-            blockchain_manager.save_to_disk()
-            
-        return {"success": True, "data": result, "reward_paid": block_reward}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    last_block = blockchain_ledger[-1]
+    new_block_number = last_block["block_number"] + 1
+    previous_hash = last_block["block_hash"]
 
+    # Grab pending transactions to package inside this block
+    packaged_txs = list(mempool_pending_transactions)
+    mempool_pending_transactions = [] # Flush mempool
+
+    new_block = {
+        "block_number": new_block_number,
+        "timestamp": time.time(),
+        "transactions": packaged_txs,
+        "nonce": 0,
+        "previous_hash": previous_hash,
+        "is_tampered": False
+    }
+
+    # Execute Proof of Work looping
+    target_prefix = "0" * req.difficulty
+    while True:
+        current_hash = calculate_block_hash(new_block)
+        if current_hash.startswith(target_prefix):
+            new_block["block_hash"] = current_hash
+            break
+        new_block["nonce"] += 1
+
+    # Process and settle recipient payouts
+    for tx in packaged_txs:
+        recipient = tx["recipient"]
+        if recipient in client_database_registry:
+            client_database_registry[recipient]["balance"] += tx["value"]
+        else:
+            client_database_registry[recipient] = {"name": recipient, "balance": 100.0 + tx["value"]}
+
+    blockchain_ledger.append(new_block)
+    return {"success": True, "detail": f"Block #{new_block_number} mined successfully."}
+
+# 4. LEDGER TIMELINE & VALIDATION
 @app.get("/api/blockchain")
-def get_blockchain():
-    return {"success": True, "data": blockchain_manager.get_blockchain()}
+async def get_blockchain():
+    return {"success": True, "data": blockchain_ledger}
 
 @app.get("/api/validate")
-def validate_blockchain():
-    result = blockchain_manager.validate_blockchain()
-    return {"success": True, "data": result}
+async def validate_chain():
+    errors = []
+    for i in range(1, len(blockchain_ledger)):
+        current = blockchain_ledger[i]
+        previous = blockchain_ledger[i-1]
 
+        # Check hash chaining link
+        if current["previous_hash"] != previous["block_hash"]:
+            errors.append(f"Hash linkage broken between Block #{previous['block_number']} and #{current['block_number']}.")
+
+        # Check structural data integrity hash
+        recalculated = calculate_block_hash(current)
+        if current["block_hash"] != recalculated:
+            errors.append(f"Data corruption detected on Block #{current['block_number']}.")
+
+    if errors:
+        return {"success": True, "data": {"valid": False, "errors": errors}}
+    return {"success": True, "data": {"valid": True, "message": "Blockchain ledger integrity fully intact! ✅"}}
+
+# 5. SECURITY TESTING: MANIPULATE HISTORY
 @app.post("/api/tamper/{block_number}")
-def tamper_block(block_number: int):
-    try:
-        result = blockchain_manager.tamper_block(block_number)
-        return {"success": True, "data": result}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+async def tamper_block(block_number: int):
+    for block in blockchain_ledger:
+        if block["block_number"] == block_number:
+            block["is_tampered"] = True
+            # Intentionally corrupt data properties to simulate a hack
+            block["transactions"] = [{"sender": "HACKER", "recipient": "MALICIOUS", "value": 99999.0, "gas_fee": 0.0}]
+            block["block_hash"] = "CORRUPTED_HASH_VAL_ERROR"
+            return {"success": True, "detail": f"Block #{block_number} successfully corrupted."}
+    raise HTTPException(status_code=404, detail="Block not found.")
 
+# 6. RESET NETWORK SYSTEM
 @app.post("/api/reset")
-def reset_blockchain():
-    result = blockchain_manager.reset()
-    return {"success": True, "data": result}
-
-if __name__ == "__main__":
-    # Standard production initialization command bindings
-    uvicorn.run("app:app", host="0.0.0.0", port=5002, reload=True)
+async def reset_ledger():
+    global client_database_registry, mempool_pending_transactions, blockchain_ledger
+    client_database_registry = {
+        "Alice": {"name": "Alice", "balance": 500.0},
+        "Bob": {"name": "Bob", "balance": 500.0}
+    }
+    mempool_pending_transactions = []
+    blockchain_ledger = []
+    create_genesis_block()
+    return {"success": True, "detail": "Ledger state flushed back to core defaults."}
