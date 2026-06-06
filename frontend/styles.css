@@ -445,3 +445,16 @@ body.light-mode .flow-sender {
 body.light-mode .flow-recipient { 
   color: #00b894; 
 }
+
+/* NEW RESPONSIVE ANALYTICS ROW MEDIA OVERRIDES */
+@media (max-width: 768px) {
+  .analytics-row {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .analytics-row {
+    grid-template-columns: 1fr !important;
+  }
+}
