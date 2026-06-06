@@ -2,7 +2,7 @@
 // CONFIGURATION & GLOBAL STATE
 // ==========================================
 if (!window.API_BASE_URL) {
-    window.API_BASE_URL = "https://blockchain-transaction-system.onrender.com";
+    window.API_BASE_URL = "http://127.0.0.1:8000";
 }
 
 let blockchainData = [];
